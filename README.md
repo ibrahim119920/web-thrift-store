@@ -1,2 +1,2 @@
 # web-thrift-store
-Web Thrift Store adalah website e-commerce untuk usaha thrift dengan konsep produk unik dan stok satu, dilengkapi fitur pembelian, wishlist, ulasan, serta pengelolaan produk dan pesanan.
+Web Thrift Store adalah platform web untuk penjualan pakaian thrift dengan sistem stok unik, transaksi pembelian, dan pengelolaan produk.
