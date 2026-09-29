@@ -1,0 +1,316 @@
+{
+  "race": {
+    "product": "Hoodie Crewneck Champion",
+    "productId": "6abbf7e1e112b603a04eb380",
+    "request": {
+      "method": "POST",
+      "url": "http://localhost:5000/api/orders",
+      "payload": {
+        "productIds": [
+          "6abbf7e1e112b603a04eb380"
+        ],
+        "shippingAddressId": "<alamat Pembeli 1 atau Pembeli 2>",
+        "courier": "jne",
+        "service": "reg",
+        "confirmUsedItem": true
+      }
+    },
+    "parallelRequests": 10,
+    "attempts": [
+      {
+        "number": 1,
+        "buyer": "Pembeli 2",
+        "shippingAddressId": "6abc00c967f599fe09682d1b",
+        "statusCode": 201,
+        "outcome": "Created",
+        "orderId": "6abc00c967f599fe09682d1c"
+      },
+      {
+        "number": 2,
+        "buyer": "Pembeli 1",
+        "shippingAddressId": "6abc00c967f599fe09682d1a",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      },
+      {
+        "number": 3,
+        "buyer": "Pembeli 2",
+        "shippingAddressId": "6abc00c967f599fe09682d1b",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      },
+      {
+        "number": 4,
+        "buyer": "Pembeli 1",
+        "shippingAddressId": "6abc00c967f599fe09682d1a",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      },
+      {
+        "number": 5,
+        "buyer": "Pembeli 2",
+        "shippingAddressId": "6abc00c967f599fe09682d1b",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      },
+      {
+        "number": 6,
+        "buyer": "Pembeli 1",
+        "shippingAddressId": "6abc00c967f599fe09682d1a",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      },
+      {
+        "number": 7,
+        "buyer": "Pembeli 2",
+        "shippingAddressId": "6abc00c967f599fe09682d1b",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      },
+      {
+        "number": 8,
+        "buyer": "Pembeli 1",
+        "shippingAddressId": "6abc00c967f599fe09682d1a",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      },
+      {
+        "number": 9,
+        "buyer": "Pembeli 2",
+        "shippingAddressId": "6abc00c967f599fe09682d1b",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      },
+      {
+        "number": 10,
+        "buyer": "Pembeli 1",
+        "shippingAddressId": "6abc00c967f599fe09682d1a",
+        "statusCode": 409,
+        "outcome": "Conflict"
+      }
+    ],
+    "created201": 1,
+    "conflict409": 9,
+    "other": [],
+    "winningOrderId": "6abc00c967f599fe09682d1c",
+    "ordersBeforeRace": 2,
+    "ordersCreatedThisRun": 1,
+    "ordersAfterRace": 3,
+    "productStatusAfter": "reserved",
+    "pass": true
+  },
+  "expiry": {
+    "operation": "expireOverdueOrders()",
+    "triggerSource": "Dipanggil langsung oleh script uji; server juga menjalankannya otomatis setiap 60 detik",
+    "orderId": "6abc00c967f599fe09682d1c",
+    "orderNumber": "WTS-20260929-29B654",
+    "product": "Hoodie Crewneck Champion",
+    "productId": "6abbf7e1e112b603a04eb380",
+    "originalExpiresAt": "2026-09-29T19:17:45.637Z",
+    "forcedExpiresAt": "2026-09-29T18:16:45.713Z",
+    "sweeperStartedAt": "2026-09-29T18:17:45.721Z",
+    "sweeperFinishedAt": "2026-09-29T18:17:45.767Z",
+    "overdueBySeconds": 60,
+    "durationMs": 46,
+    "expected": {
+      "orderStatusBefore": "waiting_payment",
+      "orderStatusAfter": "cancelled",
+      "productStatusBefore": "reserved",
+      "productStatusAfter": "available"
+    },
+    "actual": {
+      "orderStatusBefore": "waiting_payment",
+      "orderStatusAfter": "cancelled",
+      "productStatusBefore": "reserved",
+      "productStatusAfter": "available"
+    },
+    "releasedOrders": 1,
+    "checks": {
+      "Order awal berstatus waiting_payment": true,
+      "Produk awal berstatus reserved": true,
+      "expiresAt sudah melewati waktu sweeper": true,
+      "Order berubah menjadi cancelled": true,
+      "Produk kembali menjadi available": true
+    },
+    "orderStatusBefore": "waiting_payment",
+    "orderStatusAfter": "cancelled",
+    "productStatusBefore": "reserved",
+    "productStatusAfter": "available",
+    "pass": true
+  },
+  "indexes": {
+    "users": [
+      {
+        "name": "_id_",
+        "key": {
+          "_id": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "email_1",
+        "key": {
+          "email": 1
+        },
+        "unique": true
+      },
+      {
+        "name": "googleId_1",
+        "key": {
+          "googleId": 1
+        },
+        "unique": true
+      }
+    ],
+    "products": [
+      {
+        "name": "_id_",
+        "key": {
+          "_id": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "status_1",
+        "key": {
+          "status": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "category_1_status_1",
+        "key": {
+          "category": 1,
+          "status": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "price_1",
+        "key": {
+          "price": 1
+        },
+        "unique": false
+      }
+    ],
+    "shipping_addresses": [
+      {
+        "name": "_id_",
+        "key": {
+          "_id": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "userId_1",
+        "key": {
+          "userId": 1
+        },
+        "unique": false
+      }
+    ],
+    "orders": [
+      {
+        "name": "_id_",
+        "key": {
+          "_id": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "orderNumber_1",
+        "key": {
+          "orderNumber": 1
+        },
+        "unique": true
+      },
+      {
+        "name": "userId_1",
+        "key": {
+          "userId": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "status_1_expiresAt_1",
+        "key": {
+          "status": 1,
+          "expiresAt": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "items.productId_1",
+        "key": {
+          "items.productId": 1
+        },
+        "unique": false
+      }
+    ],
+    "payments": [
+      {
+        "name": "_id_",
+        "key": {
+          "_id": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "orderId_1",
+        "key": {
+          "orderId": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "transactionId_1",
+        "key": {
+          "transactionId": 1
+        },
+        "unique": true
+      }
+    ],
+    "wishlists": [
+      {
+        "name": "_id_",
+        "key": {
+          "_id": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "userId_1_productId_1",
+        "key": {
+          "userId": 1,
+          "productId": 1
+        },
+        "unique": true
+      }
+    ],
+    "reviews": [
+      {
+        "name": "_id_",
+        "key": {
+          "_id": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "productId_1",
+        "key": {
+          "productId": 1
+        },
+        "unique": false
+      },
+      {
+        "name": "userId_1_productId_1_orderId_1",
+        "key": {
+          "userId": 1,
+          "productId": 1,
+          "orderId": 1
+        },
+        "unique": true
+      }
+    ]
+  }
+}
