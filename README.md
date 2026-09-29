@@ -9,6 +9,35 @@ WantToSell adalah platform web untuk penjualan pakaian thrift dengan sistem stok
 3. Muhammad Syauqi Fittuqo (24/543713/TK/60433)
 4. Ahmad Maulana Ibrahim (24/539655/TK/59853)
 
+## Struktur Direktori dan File
+
+```
+web-thrift-store/
+├── backend/
+│   ├── src/
+│   │   ├── controllers/                     # Controller (logika service + response)
+│   │   ├── middleware/                      # Middleware (auth, error handler, dll)
+│   │   ├── models/                          # Model schema Mongoose
+│   │   ├── routes/                          # Definisi endpoint API
+│   │   ├── services/                        # Service layer (logika bisnis)
+│   │   ├── utils/                           # Helper functions
+│   │   ├── app.js                           # Konfigurasi Express
+│   │   └── server.js                        # Entry point server
+│   └── scripts/                             # Skrip helper
+├── postman/                                 # Koleksi Postman + laporan hasil Newman
+│   └── WantToSell.postman_collection.json   # Koleksi Postman
+├── scripts/                                 # Skrip untuk otomatisasi
+│   ├── build-collection.js                  # Skrip untuk otomatisasi pengujian
+│   ├── test-integrity.js                    # Skrip untuk otomatisasi pengujian
+│   └── run-tests.js                         # Skrip untuk menjalankan otomatisasi pengujian
+├── .env.example                             # Template variabel environment
+├── docker-compose.yml                       # Konfigurasi Docker untuk MongoDB replica set
+├── package-lock.json                        # Lock file untuk dependensi backend
+├── package.json                             # Dependensi dan script backend
+├── README.md                                # Dokumentasi repositori
+└── server.js                                # Entry point root repository
+```
+
 ## Menjalankan backend
 
 Backend menggunakan Node.js, Express, dan MongoDB. Jalankan semua perintah berikut dari direktori root repository.
@@ -65,3 +94,6 @@ Uji integritas membutuhkan data seed, membuat order dan alamat pengujian, lalu m
 - Order menggunakan transaksi MongoDB, sehingga MongoDB dijalankan sebagai replica set melalui Docker Compose.
 - Pembayaran QRIS/VA dan webhook disimulasikan dengan pola Midtrans sandbox; backend belum terhubung ke Midtrans sungguhan.
 - Login Google belum diimplementasikan. Registrasi publik selalu membuat akun buyer; akun admin dibuat melalui seed.
+
+## Google Drive Link  
+https://drive.google.com/drive/...
