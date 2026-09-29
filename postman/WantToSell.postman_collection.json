@@ -1,0 +1,3070 @@
+{
+  "info": {
+    "name": "WantToSell API",
+    "description": "Koleksi pengujian REST API WantToSell (toko pakaian preloved). Jalankan seluruh folder berurutan (Collection Runner / Newman).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api"
+    },
+    {
+      "key": "paymentServerKey",
+      "value": "SB-Mid-server-contoh-ganti-ini"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autentikasi",
+      "item": [
+        {
+          "name": "POST /api/auth/register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Role dipaksa \\\"buyer\\\" walau klien mengirim role admin (anti privilege escalation)\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.role).to.eql('buyer');",
+                  "  pm.expect(j.data.token).to.be.a('string');",
+                  "  pm.expect(j.data).to.not.have.property('password');",
+                  "});",
+                  "pm.collectionVariables.set(\"newBuyerEmail\", pm.response.json().data.email);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pembeli Baru\",\n  \"email\": \"pembeli.{{$timestamp}}@gmail.com\",\n  \"password\": \"Pembeli123!\",\n  \"phone\": \"081234567800\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Pendaftaran akun pembeli baru dengan enkripsi kata sandi bcrypt."
+          }
+        },
+        {
+          "name": "POST /api/auth/register (email duplikat)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 409\", function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pembeli Satu\",\n  \"email\": \"buyer1@wanttosell.test\",\n  \"password\": \"Buyer123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Menolak registrasi dengan email yang sudah terdaftar."
+          }
+        },
+        {
+          "name": "POST /api/auth/register (validasi gagal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Berisi daftar error per field\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.errors.length).to.be.at.least(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"X\",\n  \"email\": \"bukan-email\",\n  \"password\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Validasi input: email tidak valid dan kata sandi kurang dari 6 karakter."
+          }
+        },
+        {
+          "name": "POST /api/auth/login (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Token & role admin\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.role).to.eql('admin');",
+                  "});",
+                  "pm.collectionVariables.set(\"adminToken\", pm.response.json().data.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@wanttosell.test\",\n  \"password\": \"Admin123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Otentikasi Admin dan penerbitan JSON Web Token (JWT)."
+          }
+        },
+        {
+          "name": "POST /api/auth/login (pembeli 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.collectionVariables.set(\"buyer1Token\", pm.response.json().data.token);",
+                  "pm.collectionVariables.set(\"buyer1Id\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"buyer1@wanttosell.test\",\n  \"password\": \"Buyer123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Otentikasi pembeli dan penerbitan JWT."
+          }
+        },
+        {
+          "name": "POST /api/auth/login (pembeli 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.collectionVariables.set(\"buyer2Token\", pm.response.json().data.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"buyer2@wanttosell.test\",\n  \"password\": \"Buyer123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Otentikasi pembeli kedua (dipakai untuk uji otorisasi dan rebutan barang)."
+          }
+        },
+        {
+          "name": "POST /api/auth/login (kata sandi salah)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 401\", function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"buyer1@wanttosell.test\",\n  \"password\": \"salah-total\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Menolak login dengan kata sandi salah."
+          }
+        },
+        {
+          "name": "GET /api/auth/me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Profil sesuai\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.email).to.eql('buyer1@wanttosell.test');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Hak Akses: Private (Header Bearer Token) | Fungsi: Validasi token JWT dan pengambilan profil aktif."
+          }
+        },
+        {
+          "name": "GET /api/auth/me (tanpa token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 401\", function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Hak Akses: Private (Header Bearer Token) | Fungsi: Menolak akses tanpa token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Produk (Admin & Katalog)",
+      "item": [
+        {
+          "name": "POST /api/products (Admin, produk A)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Status awal available, ada minus tags & catatan penjual\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.status).to.eql('available');",
+                  "  pm.expect(j.data.images).to.have.lengthOf(4);",
+                  "  pm.expect(j.data.condition.minusTags).to.eql(['noda kecil']);",
+                  "});",
+                  "pm.collectionVariables.set(\"productA\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kemeja Uji Coba A\",\n  \"description\": \"Kemeja Uji Coba A preloved\",\n  \"category\": \"kemeja\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 55,\n    \"length\": 72\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 100000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=Kemeja%20Uji%20Coba%20A-depan\",\n    \"https://placehold.co/600x800?text=Kemeja%20Uji%20Coba%20A-belakang\",\n    \"https://placehold.co/600x800?text=Kemeja%20Uji%20Coba%20A-samping\",\n    \"https://placehold.co/600x800?text=Kemeja%20Uji%20Coba%20A-detail\"\n  ],\n  \"weight\": 600\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin menambah barang unik (1 barang = 1 dokumen) dengan 4 foto, ukuran cm, dan dokumentasi cacat."
+          }
+        },
+        {
+          "name": "POST /api/products (Admin, produk B)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.collectionVariables.set(\"productB\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jaket Uji Coba B\",\n  \"description\": \"Jaket Uji Coba B preloved\",\n  \"category\": \"jaket\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 60,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 250000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=Jaket%20Uji%20Coba%20B-depan\",\n    \"https://placehold.co/600x800?text=Jaket%20Uji%20Coba%20B-belakang\",\n    \"https://placehold.co/600x800?text=Jaket%20Uji%20Coba%20B-samping\",\n    \"https://placehold.co/600x800?text=Jaket%20Uji%20Coba%20B-detail\"\n  ],\n  \"weight\": 600\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Menambah produk B (dipakai untuk skenario pembatalan & pembayaran kedaluwarsa)."
+          }
+        },
+        {
+          "name": "POST /api/products (Admin, produk C)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.collectionVariables.set(\"productC\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kaos Uji Coba C\",\n  \"description\": \"Kaos Uji Coba C preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 60000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=Kaos%20Uji%20Coba%20C-depan\",\n    \"https://placehold.co/600x800?text=Kaos%20Uji%20Coba%20C-belakang\",\n    \"https://placehold.co/600x800?text=Kaos%20Uji%20Coba%20C-samping\",\n    \"https://placehold.co/600x800?text=Kaos%20Uji%20Coba%20C-detail\"\n  ],\n  \"weight\": 600\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Menambah produk C (dipakai untuk uji ulasan sebelum order selesai)."
+          }
+        },
+        {
+          "name": "POST /api/products (hanya 3 foto)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Produk Tiga Foto\",\n  \"description\": \"Produk Tiga Foto preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=x-depan\",\n    \"https://placehold.co/600x800?text=x-belakang\",\n    \"https://placehold.co/600x800?text=x-samping\"\n  ],\n  \"weight\": 600\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Validasi galeri 4 sudut: menolak produk dengan foto selain 4."
+          }
+        },
+        {
+          "name": "POST /api/products (sebagai pembeli)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Produk Ilegal\",\n  \"description\": \"Produk Ilegal preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=Produk%20Ilegal-depan\",\n    \"https://placehold.co/600x800?text=Produk%20Ilegal-belakang\",\n    \"https://placehold.co/600x800?text=Produk%20Ilegal-samping\",\n    \"https://placehold.co/600x800?text=Produk%20Ilegal-detail\"\n  ],\n  \"weight\": 600\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Otorisasi RBAC: pembeli tidak boleh membuat produk."
+          }
+        },
+        {
+          "name": "GET /api/products?category=kemeja&sort=price_asc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Semua kategori kemeja, available, harga terurut naik\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.length).to.be.at.least(3);",
+                  "  j.data.forEach(p => { pm.expect(p.category).to.eql('kemeja'); pm.expect(p.status).to.eql('available'); });",
+                  "  const prices = j.data.map(p => p.price);",
+                  "  pm.expect(prices).to.eql([...prices].sort((a, b) => a - b));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?category=kemeja&sort=price_asc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "kemeja"
+                },
+                {
+                  "key": "sort",
+                  "value": "price_asc"
+                }
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Pencarian berdasarkan kategori dengan urutan harga termurah."
+          }
+        },
+        {
+          "name": "GET /api/products?chestMin=55&chestMax=58&lengthMin=70&sort=chest_asc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Semua hasil berada di rentang ukuran\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.length).to.be.at.least(1);",
+                  "  j.data.forEach(p => { pm.expect(p.size.chest).to.be.within(55, 58); pm.expect(p.size.length).to.be.at.least(70); });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?chestMin=55&chestMax=58&lengthMin=70&sort=chest_asc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "chestMin",
+                  "value": "55"
+                },
+                {
+                  "key": "chestMax",
+                  "value": "58"
+                },
+                {
+                  "key": "lengthMin",
+                  "value": "70"
+                },
+                {
+                  "key": "sort",
+                  "value": "chest_asc"
+                }
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Filter ukuran presisi dalam cm (lebar dada 55-58, panjang min 70)."
+          }
+        },
+        {
+          "name": "GET /api/products?page=2&limit=5",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Metadata paging benar\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.pagination.currentPage).to.eql(2);",
+                  "  pm.expect(j.pagination.limit).to.eql(5);",
+                  "  pm.expect(j.data.length).to.be.at.most(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?page=2&limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Pagination katalog."
+          }
+        },
+        {
+          "name": "GET /api/products/{id}",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Berisi kondisi & ringkasan ulasan\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.condition.grade).to.eql('B');",
+                  "  pm.expect(j.data.reviewSummary.totalReviews).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Detail produk termasuk defect documentation dan ringkasan ulasan."
+          }
+        },
+        {
+          "name": "PUT /api/products/{id}",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Harga berubah\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.price).to.eql(95000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 95000,\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Harga turun, siap kirim\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin memperbarui harga dan catatan penjual."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Favorit (Wishlist)",
+      "item": [
+        {
+          "name": "POST /api/favorites",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productA}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/favorites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "favorites"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli menyimpan produk ke daftar favorit."
+          }
+        },
+        {
+          "name": "POST /api/favorites (duplikat)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 409\", function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productA}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/favorites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "favorites"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Unique index { userId, productId } menolak favorit ganda."
+          }
+        },
+        {
+          "name": "GET /api/favorites",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Berisi produk A ter-populate\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.count).to.eql(1);",
+                  "  pm.expect(j.data[0].productId.name).to.eql('Kemeja Uji Coba A');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/favorites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "favorites"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Melihat daftar favorit beserta detail produk."
+          }
+        },
+        {
+          "name": "DELETE /api/favorites/{productId}",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/favorites/{{productA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "favorites",
+                "{{productA}}"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Menghapus produk dari favorit."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Alamat & Ongkir",
+      "item": [
+        {
+          "name": "POST /api/shipping-addresses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.collectionVariables.set(\"addressId\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientName\": \"Pembeli Satu\",\n  \"phone\": \"081234567890\",\n  \"province\": \"Jawa Barat\",\n  \"city\": \"Bandung\",\n  \"district\": \"Coblong\",\n  \"address\": \"Jl. Ganesha No. 10\",\n  \"postalCode\": \"40132\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipping-addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipping-addresses"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli menyimpan alamat pengiriman."
+          }
+        },
+        {
+          "name": "POST /api/shipping-addresses (kode pos salah)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientName\": \"Pembeli Satu\",\n  \"phone\": \"081234567890\",\n  \"province\": \"Jawa Barat\",\n  \"city\": \"Bandung\",\n  \"district\": \"Coblong\",\n  \"address\": \"Jl. Ganesha No. 10\",\n  \"postalCode\": \"12\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipping-addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipping-addresses"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Validasi kode pos 5 digit."
+          }
+        },
+        {
+          "name": "POST /api/shipping-addresses (pembeli 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.collectionVariables.set(\"address2Id\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientName\": \"Pembeli Dua\",\n  \"phone\": \"081234567890\",\n  \"province\": \"Kalimantan Timur\",\n  \"city\": \"Balikpapan\",\n  \"district\": \"Balikpapan Kota\",\n  \"address\": \"Jl. Ganesha No. 10\",\n  \"postalCode\": \"76111\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipping-addresses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipping-addresses"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli 2 menyimpan alamat (alamat pembeli lain tidak dapat dipakai)."
+          }
+        },
+        {
+          "name": "POST /api/shipping/estimate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Ongkir = (9000 + 2500 x 1kg) x 1.5 = 17.500\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.shippingCost).to.eql(17500);",
+                  "});",
+                  "pm.collectionVariables.set(\"expectedShipping\", pm.response.json().data.shippingCost);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shippingAddressId\": \"{{addressId}}\",\n  \"courier\": \"jne\",\n  \"service\": \"reg\",\n  \"productIds\": [\n    \"{{productA}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/shipping/estimate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "shipping",
+                "estimate"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Backend menghitung ongkir otomatis (asal DI Yogyakarta, tujuan Jawa Barat, JNE REG, 600 g)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Checkout & Anti Double Purchase",
+      "item": [
+        {
+          "name": "POST /api/orders (tanpa konfirmasi barang bekas)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Ditolak dengan pesan konfirmasi\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.success).to.eql(false);",
+                  "  pm.expect(JSON.stringify(j.errors)).to.include('barang bekas');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productIds\": [\n    \"{{productA}}\"\n  ],\n  \"shippingAddressId\": \"{{addressId}}\",\n  \"courier\": \"jne\",\n  \"service\": \"reg\",\n  \"confirmUsedItem\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Fitur 6: checkout ditolak bila pembeli belum mengonfirmasi barang bekas."
+          }
+        },
+        {
+          "name": "POST /api/orders (produk A)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Status waiting_payment; total = subtotal + ongkir\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.status).to.eql('waiting_payment');",
+                  "  pm.expect(j.data.subtotal).to.eql(95000);",
+                  "  pm.expect(j.data.shippingCost).to.eql(Number(pm.collectionVariables.get('expectedShipping')));",
+                  "  pm.expect(j.data.total).to.eql(j.data.subtotal + j.data.shippingCost);",
+                  "  pm.expect(j.data.orderNumber).to.match(/^WTS-\\d{8}-[0-9A-F]{6}$/);",
+                  "});",
+                  "pm.collectionVariables.set(\"orderA\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productIds\": [\n    \"{{productA}}\"\n  ],\n  \"shippingAddressId\": \"{{addressId}}\",\n  \"courier\": \"jne\",\n  \"service\": \"reg\",\n  \"confirmUsedItem\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Checkout: produk di-reserve secara atomik dalam transaksi MongoDB, ongkir dihitung backend."
+          }
+        },
+        {
+          "name": "GET /api/products/{id} (status reserved)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Status reserved\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('reserved');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Setelah checkout, produk A berstatus reserved."
+          }
+        },
+        {
+          "name": "POST /api/orders (pembeli 2 rebut produk A)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 409\", function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"Pesan menyebut produk tidak tersedia\", function () {",
+                  "  pm.expect(pm.response.json().message).to.include('sudah tidak tersedia');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productIds\": [\n    \"{{productA}}\"\n  ],\n  \"shippingAddressId\": \"{{address2Id}}\",\n  \"courier\": \"jne\",\n  \"service\": \"reg\",\n  \"confirmUsedItem\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli lain mencoba membeli barang yang sama -> ditolak (mencegah double purchase)."
+          }
+        },
+        {
+          "name": "GET /api/products?category=kemeja (A tidak muncul)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Produk A tidak ada di daftar available\", function () {",
+                  "  const ids = pm.response.json().data.map(p => p._id);",
+                  "  pm.expect(ids).to.not.include(pm.collectionVariables.get('productA'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?category=kemeja",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "kemeja"
+                }
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Barang reserved/sold tidak muncul di katalog default."
+          }
+        },
+        {
+          "name": "POST /api/orders (alamat milik orang lain)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 404\", function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productIds\": [\n    \"{{productC}}\"\n  ],\n  \"shippingAddressId\": \"{{addressId}}\",\n  \"courier\": \"jne\",\n  \"service\": \"reg\",\n  \"confirmUsedItem\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli 2 tidak boleh memakai alamat pengiriman milik pembeli 1."
+          }
+        },
+        {
+          "name": "GET /api/orders/{id} (milik orang lain)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 404\", function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderA}}"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli 2 tidak boleh melihat order pembeli 1."
+          }
+        },
+        {
+          "name": "GET /api/orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Berisi order A\", function () {",
+                  "  pm.expect(pm.response.json().data.map(o => o._id)).to.include(pm.collectionVariables.get('orderA'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Riwayat order milik pembeli."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Pembayaran",
+      "item": [
+        {
+          "name": "POST /api/orders/{id}/payments/qris",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Pending, nominal = total order, ada QR string\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.status).to.eql('pending');",
+                  "  pm.expect(j.data.paymentMethod).to.eql('qris');",
+                  "  pm.expect(j.data.paymentData.qrString).to.be.a('string');",
+                  "});",
+                  "pm.collectionVariables.set(\"txA\", pm.response.json().data.transactionId);",
+                  "pm.collectionVariables.set(\"payAmount\", String(pm.response.json().data.amount));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderA}}/payments/qris",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderA}}",
+                "payments",
+                "qris"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Membuat pembayaran QRIS dinamis (sandbox simulasi) dengan status pending."
+          }
+        },
+        {
+          "name": "POST /api/payments/webhook (signature palsu)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const tx = pm.collectionVariables.get(\"txA\");",
+                  "const amount = pm.collectionVariables.get(\"payAmount\");",
+                  "const sig = 'deadbeef';",
+                  "pm.collectionVariables.set('sig', sig);",
+                  "pm.collectionVariables.set('curTx', tx);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{curTx}}\",\n  \"transactionStatus\": \"settlement\",\n  \"grossAmount\": \"{{payAmount}}\",\n  \"signature\": \"{{sig}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "webhook"
+              ]
+            },
+            "description": "Hak Akses: Publik (diverifikasi signature) | Fungsi: Webhook dengan signature salah ditolak; status order tidak berubah."
+          }
+        },
+        {
+          "name": "POST /api/payments/webhook (settlement)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const tx = pm.collectionVariables.get(\"txA\");",
+                  "const amount = pm.collectionVariables.get(\"payAmount\");",
+                  "const sig = CryptoJS.SHA512(tx + \"settlement\" + amount + (pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey'))).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('sig', sig);",
+                  "pm.collectionVariables.set('curTx', tx);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"changed = true\", function () {",
+                  "  pm.expect(pm.response.json().data).to.include({ status: 'success', changed: true });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{curTx}}\",\n  \"transactionStatus\": \"settlement\",\n  \"grossAmount\": \"{{payAmount}}\",\n  \"signature\": \"{{sig}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "webhook"
+              ]
+            },
+            "description": "Hak Akses: Publik (diverifikasi signature) | Fungsi: Webhook payment gateway: pembayaran berhasil -> payment success, order paid, produk sold."
+          }
+        },
+        {
+          "name": "POST /api/payments/webhook (duplikat)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const tx = pm.collectionVariables.get(\"txA\");",
+                  "const amount = pm.collectionVariables.get(\"payAmount\");",
+                  "const sig = CryptoJS.SHA512(tx + \"settlement\" + amount + (pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey'))).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('sig', sig);",
+                  "pm.collectionVariables.set('curTx', tx);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"changed = false\", function () {",
+                  "  pm.expect(pm.response.json().data.changed).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{curTx}}\",\n  \"transactionStatus\": \"settlement\",\n  \"grossAmount\": \"{{payAmount}}\",\n  \"signature\": \"{{sig}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "webhook"
+              ]
+            },
+            "description": "Hak Akses: Publik (diverifikasi signature) | Fungsi: Webhook yang dikirim ulang bersifat idempoten."
+          }
+        },
+        {
+          "name": "GET /api/orders/{id} (paid)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Status paid\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('paid');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderA}}"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Order berstatus paid setelah webhook sukses."
+          }
+        },
+        {
+          "name": "GET /api/products/{id} (status sold)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Status sold\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('sold');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Produk A berstatus sold setelah pembayaran berhasil."
+          }
+        },
+        {
+          "name": "POST /api/orders (beli barang yang sudah sold)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 409\", function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productIds\": [\n    \"{{productA}}\"\n  ],\n  \"shippingAddressId\": \"{{address2Id}}\",\n  \"courier\": \"jne\",\n  \"service\": \"reg\",\n  \"confirmUsedItem\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Barang terjual tidak dapat dibeli lagi."
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Pemenuhan Pesanan (Admin)",
+      "item": [
+        {
+          "name": "GET /api/admin/orders?status=paid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Order A ada di antrean\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.map(o => o._id)).to.include(pm.collectionVariables.get('orderA'));",
+                  "  pm.expect(j.data[0].userId).to.have.property('name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders?status=paid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "paid"
+                }
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin melihat antrean order yang sudah dibayar."
+          }
+        },
+        {
+          "name": "GET /api/admin/orders (sebagai pembeli)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: RBAC: pembeli tidak boleh mengakses rute admin."
+          }
+        },
+        {
+          "name": "PATCH /api/admin/orders/{id}/status (paid -> shipped, dilarang)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 409\", function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"shipped\",\n  \"trackingNumber\": \"JNE123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderA}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderA}}",
+                "status"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Transisi status harus berurutan; melompat langsung ke shipped ditolak."
+          }
+        },
+        {
+          "name": "PATCH /api/admin/orders/{id}/status (processing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"processing\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('processing');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"processing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderA}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderA}}",
+                "status"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin memproses order."
+          }
+        },
+        {
+          "name": "PATCH /api/admin/orders/{id}/status (shipped tanpa resi)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"shipped\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderA}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderA}}",
+                "status"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Status shipped wajib menyertakan nomor resi."
+          }
+        },
+        {
+          "name": "PATCH /api/admin/orders/{id}/status (shipped)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Resi tersimpan\", function () {",
+                  "  pm.expect(pm.response.json().data.shipping.trackingNumber).to.eql('JNE0012345678');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"shipped\",\n  \"trackingNumber\": \"JNE0012345678\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderA}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderA}}",
+                "status"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin mengirim order dengan nomor resi."
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Ulasan (Review)",
+      "item": [
+        {
+          "name": "POST /api/products/{id}/reviews (order belum completed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 409\", function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderA}}\",\n  \"rating\": 5,\n  \"comment\": \"Terlalu cepat\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}",
+                "reviews"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Ulasan hanya boleh setelah order selesai; saat status shipped ditolak."
+          }
+        },
+        {
+          "name": "PATCH /api/admin/orders/{id}/status (completed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/orders/{{orderA}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "orders",
+                "{{orderA}}",
+                "status"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Order diselesaikan."
+          }
+        },
+        {
+          "name": "POST /api/products/{id}/reviews (pembeli lain)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderA}}\",\n  \"rating\": 1,\n  \"comment\": \"Palsu\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}",
+                "reviews"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli yang tidak memiliki order tersebut tidak boleh mengulas."
+          }
+        },
+        {
+          "name": "POST /api/products/{id}/reviews",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderA}}\",\n  \"rating\": 5,\n  \"comment\": \"Barang sesuai foto, packing rapi!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}",
+                "reviews"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli memberi ulasan setelah order completed."
+          }
+        },
+        {
+          "name": "POST /api/products/{id}/reviews (duplikat)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 409\", function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderA}}\",\n  \"rating\": 4,\n  \"comment\": \"Ulang\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}",
+                "reviews"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Unique index { userId, productId, orderId } mencegah ulasan ganda."
+          }
+        },
+        {
+          "name": "GET /api/products/{id}/reviews",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Ada 1 ulasan bintang 5\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.count).to.eql(1);",
+                  "  pm.expect(j.data[0].rating).to.eql(5);",
+                  "  pm.expect(j.data[0].userId.name).to.eql('Pembeli Satu');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}",
+                "reviews"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Daftar ulasan produk."
+          }
+        },
+        {
+          "name": "GET /api/products/{id} (ringkasan ulasan)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Rata-rata 5 dari 1 ulasan\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.reviewSummary).to.eql({ averageRating: 5, totalReviews: 1 });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Detail produk memuat rata-rata rating dari agregasi."
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Pembatalan & Kedaluwarsa",
+      "item": [
+        {
+          "name": "POST /api/orders (produk B)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.collectionVariables.set(\"orderB\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productIds\": [\n    \"{{productB}}\"\n  ],\n  \"shippingAddressId\": \"{{addressId}}\",\n  \"courier\": \"jne\",\n  \"service\": \"reg\",\n  \"confirmUsedItem\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Checkout produk B."
+          }
+        },
+        {
+          "name": "POST /api/orders/{id}/cancel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"cancelled\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('cancelled');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderB}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderB}}",
+                "cancel"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Pembeli membatalkan order sebelum bayar; produk B dilepas kembali."
+          }
+        },
+        {
+          "name": "GET /api/products/{id} (B kembali available)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"available\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('available');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productB}}"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Produk B tersedia lagi setelah order dibatalkan."
+          }
+        },
+        {
+          "name": "POST /api/orders (pembeli 2, produk B)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Ongkir zona luar Jawa: (9000 + 2500) x 2.5 = 28.750 -> 29.000\", function () {",
+                  "  pm.expect(pm.response.json().data.shippingCost).to.eql(29000);",
+                  "});",
+                  "pm.collectionVariables.set(\"orderB2\", pm.response.json().data._id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productIds\": [\n    \"{{productB}}\"\n  ],\n  \"shippingAddressId\": \"{{address2Id}}\",\n  \"courier\": \"jne\",\n  \"service\": \"reg\",\n  \"confirmUsedItem\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Checkout produk B oleh pembeli 2 (tujuan luar Jawa -> zona 2.5x)."
+          }
+        },
+        {
+          "name": "POST /api/orders/{id}/payments/bank-transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Ada nomor VA\", function () {",
+                  "  pm.expect(pm.response.json().data.paymentData.vaNumber).to.be.a('string');",
+                  "});",
+                  "pm.collectionVariables.set(\"txB\", pm.response.json().data.transactionId);",
+                  "pm.collectionVariables.set(\"payAmountB\", String(pm.response.json().data.amount));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderB2}}/payments/bank-transfer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderB2}}",
+                "payments",
+                "bank-transfer"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Membuat pembayaran transfer bank (virtual account)."
+          }
+        },
+        {
+          "name": "POST /api/payments/webhook (expire)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const tx = pm.collectionVariables.get(\"txB\");",
+                  "const amount = pm.collectionVariables.get(\"payAmountB\");",
+                  "const sig = CryptoJS.SHA512(tx + \"expire\" + amount + (pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey'))).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('sig', sig);",
+                  "pm.collectionVariables.set('curTx', tx);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"expired\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('expired');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{curTx}}\",\n  \"transactionStatus\": \"expire\",\n  \"grossAmount\": \"{{payAmountB}}\",\n  \"signature\": \"{{sig}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payments",
+                "webhook"
+              ]
+            },
+            "description": "Hak Akses: Publik (diverifikasi signature) | Fungsi: Waktu pembayaran habis -> payment expired, order cancelled, produk dilepas."
+          }
+        },
+        {
+          "name": "GET /api/orders/{id} (cancelled otomatis)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"cancelled\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('cancelled');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer2Token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderB2}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderB2}}"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Pembeli) | Fungsi: Order otomatis cancelled setelah pembayaran kedaluwarsa."
+          }
+        },
+        {
+          "name": "GET /api/products/{id} (B available lagi)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"available\", function () {",
+                  "  pm.expect(pm.response.json().data.status).to.eql('available');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productB}}"
+              ]
+            },
+            "description": "Hak Akses: Publik | Fungsi: Produk B kembali dapat dibeli."
+          }
+        },
+        {
+          "name": "DELETE /api/products/{id} (Admin, produk B)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productB}}"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin menghapus produk yang masih available."
+          }
+        },
+        {
+          "name": "DELETE /api/products/{id} (sudah sold)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 409\", function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productA}}"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Produk yang sudah terjual tidak dapat dihapus (riwayat order dijaga)."
+          }
+        }
+      ]
+    }
+  ]
+}
