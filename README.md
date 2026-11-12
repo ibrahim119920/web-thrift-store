@@ -16,23 +16,29 @@ Repository ini adalah monorepo **npm workspaces** (JavaScript, CommonJS).
 ```
 web-thrift-store/
 ├── apps/
-│   └── api/                                     # Backend Express.js (workspace "api")
-│       ├── src/
-│       │   ├── middlewares/                     # Middleware (auth, validasi, error handler)
-│       │   ├── models/                          # Model schema Mongoose
-│       │   ├── routes/                          # Definisi endpoint API
-│       │   ├── services/                        # Service layer (logika bisnis)
-│       │   ├── utils/                           # Helper functions
-│       │   ├── app.js                           # Konfigurasi Express
-│       │   └── server.js                        # Entry point server
-│       ├── scripts/
-│       │   ├── seed.js                          # Data awal database
-│       │   ├── build-collection.js              # Generator koleksi Postman
-│       │   ├── run-tests.js                     # Menjalankan koleksi API via Newman
-│       │   └── integrity-test.js                # Uji race condition & kedaluwarsa order
-│       ├── postman/                             # Koleksi Postman + laporan hasil Newman
-│       ├── .env.example                         # Template variabel environment backend
-│       └── package.json                         # Dependensi dan script backend
+│   ├── api/                                     # Backend Express.js (workspace "api")
+│   │   ├── src/
+│   │   │   ├── middlewares/                     # Middleware (auth, validasi, error handler)
+│   │   │   ├── models/                          # Model schema Mongoose
+│   │   │   ├── routes/                          # Definisi endpoint API
+│   │   │   ├── services/                        # Service layer (logika bisnis)
+│   │   │   ├── utils/                           # Helper functions
+│   │   │   ├── app.js                           # Konfigurasi Express
+│   │   │   └── server.js                        # Entry point server
+│   │   ├── scripts/
+│   │   │   ├── seed.js                          # Data awal database
+│   │   │   ├── build-collection.js              # Generator koleksi Postman
+│   │   │   ├── run-tests.js                     # Menjalankan koleksi API via Newman
+│   │   │   └── integrity-test.js                # Uji race condition & kedaluwarsa order
+│   │   ├── postman/                             # Koleksi Postman + laporan hasil Newman
+│   │   ├── .env.example                         # Template variabel environment backend
+│   │   └── package.json                         # Dependensi dan script backend
+│   └── web/                                     # Frontend Next.js 15 (workspace "web")
+│       ├── src/app/                             # Halaman (routing berbasis folder)
+│       ├── src/features/                        # UI per fitur (landing, products)
+│       ├── src/components/ui/                   # Komponen shadcn/ui
+│       ├── src/services/                        # Pemanggilan API backend
+│       └── .env.example                         # NEXT_PUBLIC_API_URL
 ├── packages/
 │   └── shared/                                  # Kode bersama frontend/backend (workspace "@wanttosell/shared")
 │       ├── constants/
@@ -47,7 +53,7 @@ web-thrift-store/
 └── README.md
 ```
 
-Frontend Next.js akan ditambahkan nanti di `apps/web/`.
+Frontend Next.js ada di `apps/web/` (workspace "web"). Untuk menjalankannya, salin `apps/web/.env.example` menjadi `apps/web/.env.local`, nyalakan backend, lalu jalankan `npm run dev:web` dan buka `http://localhost:3000`. Detailnya ada di `apps/web/README.md`.
 
 ## Menjalankan backend
 
