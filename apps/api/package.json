@@ -12,7 +12,8 @@
     "test": "npm run test:api && npm run test:integrity",
     "test:api": "node scripts/run-tests.js",
     "test:integrity": "node scripts/integrity-test.js",
-    "build:collection": "node scripts/build-collection.js"
+    "build:collection": "node scripts/build-collection.js",
+    "email:send": "node scripts/send-email.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

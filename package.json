@@ -23,6 +23,7 @@
     "test": "npm run test --workspace=api",
     "test:api": "npm run test:api --workspace=api",
     "test:integrity": "npm run test:integrity --workspace=api",
-    "build:collection": "npm run build:collection --workspace=api"
+    "build:collection": "npm run build:collection --workspace=api",
+    "email:send": "npm run email:send --workspace=api --"
   }
 }
