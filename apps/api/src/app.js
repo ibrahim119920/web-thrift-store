@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { errorHandler } = require('./middleware');
+const { errorHandler } = require('./middlewares');
 const { buyerRouter, adminRouter } = require('./routes/orders');
 const { webhookRouter } = require('./routes/payments');
 

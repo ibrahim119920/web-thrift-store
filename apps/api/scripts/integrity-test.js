@@ -6,8 +6,8 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const mongoose = require('mongoose');
-const { Product, Order, ShippingAddress } = require('../backend/src/models');
-const { expireOverdueOrders } = require('../backend/src/services/orderService');
+const { Product, Order, ShippingAddress } = require('../src/models');
+const { expireOverdueOrders } = require('../src/services/orderService');
 
 const BASE = `http://localhost:${process.env.PORT || 5000}/api`;
 const call = async (method, path, body, token) => {

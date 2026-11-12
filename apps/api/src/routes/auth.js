@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const { User } = require('../models');
 const { AppError, asyncHandler, ok } = require('../utils');
-const { authenticate, validate } = require('../middleware');
+const { authenticate, validate } = require('../middlewares');
 
 const phone = z.string().regex(/^(\+62|62|0)8[0-9]{8,12}$/, 'Nomor telepon Indonesia tidak valid');
 

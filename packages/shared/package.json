@@ -1,0 +1,8 @@
+{
+  "name": "@wanttosell/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kode yang aman dipakai bersama oleh frontend dan backend (konstanta, skema Zod non-server)",
+  "type": "commonjs",
+  "main": "index.js"
+}

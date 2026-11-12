@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { z } = require('zod');
 const { ShippingAddress, Product } = require('../models');
 const { AppError, asyncHandler, ok } = require('../utils');
-const { authenticate, validate } = require('../middleware');
+const { authenticate, validate } = require('../middlewares');
 const { calculateShipping, COURIERS } = require('../utils/shipping');
 
 const addressSchema = z.object({

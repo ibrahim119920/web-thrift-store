@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { z } = require('zod');
 const { Product, Wishlist } = require('../models');
 const { AppError, asyncHandler, ok } = require('../utils');
-const { authenticate, validate } = require('../middleware');
+const { authenticate, validate } = require('../middlewares');
 
 router.use(authenticate);
 

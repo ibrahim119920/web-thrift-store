@@ -3,7 +3,7 @@ const { z } = require('zod');
 const mongoose = require('mongoose');
 const { Product, Order, Review } = require('../models');
 const { AppError, asyncHandler, ok, parsePaging, paginationMeta } = require('../utils');
-const { authenticate, validate } = require('../middleware');
+const { authenticate, validate } = require('../middlewares');
 
 const reviewSchema = z.object({
   orderId: z.string().regex(/^[a-f\d]{24}$/i, 'orderId tidak valid'),

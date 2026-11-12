@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { z } = require('zod');
 const { Product, Review, PRODUCT_STATUS } = require('../models');
 const { AppError, asyncHandler, ok, escapeRegex, parsePaging, paginationMeta } = require('../utils');
-const { authenticate, requireRole, validate } = require('../middleware');
+const { authenticate, requireRole, validate } = require('../middlewares');
 const reviewRoutes = require('./reviews');
 
 const productSchema = z.object({

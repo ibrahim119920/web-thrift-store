@@ -11,38 +11,49 @@ WantToSell adalah platform web untuk penjualan pakaian thrift dengan sistem stok
 
 ## Struktur Direktori dan File
 
+Repository ini adalah monorepo **npm workspaces** (JavaScript, CommonJS).
+
 ```
 web-thrift-store/
-├── backend/
-│   ├── src/
-│   │   ├── controllers/                     # Controller (logika service + response)
-│   │   ├── middleware/                      # Middleware (auth, error handler, dll)
-│   │   ├── models/                          # Model schema Mongoose
-│   │   ├── routes/                          # Definisi endpoint API
-│   │   ├── services/                        # Service layer (logika bisnis)
-│   │   ├── utils/                           # Helper functions
-│   │   ├── app.js                           # Konfigurasi Express
-│   │   └── server.js                        # Entry point server
-│   └── scripts/                             # Skrip helper
-├── postman/                                 # Koleksi Postman + laporan hasil Newman
-│   └── WantToSell.postman_collection.json   # Koleksi Postman
-├── scripts/                                 # Skrip untuk otomatisasi
-│   ├── build-collection.js                  # Skrip untuk otomatisasi pengujian
-│   ├── test-integrity.js                    # Skrip untuk otomatisasi pengujian
-│   └── run-tests.js                         # Skrip untuk menjalankan otomatisasi pengujian
-├── .env.example                             # Template variabel environment
-├── docker-compose.yml                       # Konfigurasi Docker untuk MongoDB replica set
-├── package-lock.json                        # Lock file untuk dependensi backend
-├── package.json                             # Dependensi dan script backend
-├── README.md                                # Dokumentasi repositori
-└── server.js                                # Entry point root repository
+├── apps/
+│   └── api/                                     # Backend Express.js (workspace "api")
+│       ├── src/
+│       │   ├── middlewares/                     # Middleware (auth, validasi, error handler)
+│       │   ├── models/                          # Model schema Mongoose
+│       │   ├── routes/                          # Definisi endpoint API
+│       │   ├── services/                        # Service layer (logika bisnis)
+│       │   ├── utils/                           # Helper functions
+│       │   ├── app.js                           # Konfigurasi Express
+│       │   └── server.js                        # Entry point server
+│       ├── scripts/
+│       │   ├── seed.js                          # Data awal database
+│       │   ├── build-collection.js              # Generator koleksi Postman
+│       │   ├── run-tests.js                     # Menjalankan koleksi API via Newman
+│       │   └── integrity-test.js                # Uji race condition & kedaluwarsa order
+│       ├── postman/                             # Koleksi Postman + laporan hasil Newman
+│       ├── .env.example                         # Template variabel environment backend
+│       └── package.json                         # Dependensi dan script backend
+├── packages/
+│   └── shared/                                  # Kode bersama frontend/backend (workspace "@wanttosell/shared")
+│       ├── constants/
+│       └── validators/
+├── infrastructure/                              # Konfigurasi deployment AWS (belum diisi)
+│   ├── aws/{ecs,ecr,s3}/
+│   ├── docker/
+│   └── deployment/
+├── docker-compose.yml                           # MongoDB replica set untuk development
+├── package.json                                 # Root workspace + script pintasan
+├── package-lock.json
+└── README.md
 ```
+
+Frontend Next.js akan ditambahkan nanti di `apps/web/`.
 
 ## Menjalankan backend
 
-Backend menggunakan Node.js, Express, dan MongoDB. Jalankan semua perintah berikut dari direktori root repository.
+Backend menggunakan Node.js, Express, dan MongoDB. Semua perintah `npm` di bawah dijalankan dari direktori root repository; root `package.json` meneruskannya ke workspace `api`.
 
-1. Siapkan konfigurasi lokal dengan menyalin `.env.example` menjadi `.env` (`Copy-Item .env.example .env` di PowerShell, atau `cp .env.example .env` di macOS/Linux). Isi `JWT_SECRET` dengan secret acak yang panjang dan ubah `PAYMENT_SERVER_KEY` bila diperlukan.
+1. Siapkan konfigurasi lokal dengan menyalin `apps/api/.env.example` menjadi `apps/api/.env` (`Copy-Item apps/api/.env.example apps/api/.env` di PowerShell, atau `cp apps/api/.env.example apps/api/.env` di macOS/Linux). Isi `JWT_SECRET` dengan secret acak yang panjang dan ubah `PAYMENT_SERVER_KEY` bila diperlukan.
 2. Jalankan MongoDB replica set satu node:
 
    ```bash
@@ -62,7 +73,7 @@ Server berjalan di `http://localhost:5000`; pemeriksaan kesehatan tersedia di `h
 
 > **Peringatan:** `npm run seed` menghapus isi seluruh koleksi aplikasi yang ada (`users`, `products`, `orders`, `payments`, `wishlists`, `reviews`, dan `shipping_addresses`) sebelum memasukkan data awal. Jalankan hanya jika penghapusan data tersebut memang diinginkan.
 
-Jalankan perintah ini dari root repository setelah MongoDB aktif dan `.env` tersedia:
+Jalankan perintah ini dari root repository setelah MongoDB aktif dan `apps/api/.env` tersedia:
 
 ```bash
 npm run seed
@@ -72,13 +83,13 @@ Seed menyediakan satu admin, dua pembeli, dan 12 produk. Akun admin: `admin@want
 
 ### Pengujian API via Postman/Newman
 
-Koleksi `postman/WantToSell.postman_collection.json` berisi sembilan kelompok pengujian API. Jalankan seed sebelum pengujian agar akun dan katalog awal tersedia. Biarkan server berjalan di satu terminal, lalu jalankan dari terminal lain di root repository. `npm test` menjalankan koleksi API dan uji integritas:
+Koleksi `apps/api/postman/WantToSell.postman_collection.json` berisi sembilan kelompok pengujian API. Jalankan seed sebelum pengujian agar akun dan katalog awal tersedia. Biarkan server berjalan di satu terminal, lalu jalankan dari terminal lain di root repository. `npm test` menjalankan koleksi API dan uji integritas:
 
 ```bash
 npm test
 ```
 
-Koleksi API dijalankan melalui Newman dan menyimpan rincian request, response, serta assertion ke `postman/newman-result.json`. Untuk menjalankan hanya koleksi API, gunakan `npm run test:api`. Untuk mengimpor koleksi ke aplikasi Postman, gunakan URL dasar `http://localhost:5000/api`. Jika `PAYMENT_SERVER_KEY` di `.env` berbeda dari nilai contoh, tambahkan variabel environment Postman bernama `PAYMENT_SERVER_KEY` dengan nilai yang sama.
+Koleksi API dijalankan melalui Newman dan menyimpan rincian request, response, serta assertion ke `apps/api/postman/newman-result.json`. Untuk menjalankan hanya koleksi API, gunakan `npm run test:api`. Untuk mengimpor koleksi ke aplikasi Postman, gunakan URL dasar `http://localhost:5000/api`. Jika `PAYMENT_SERVER_KEY` di `apps/api/.env` berbeda dari nilai contoh, tambahkan variabel environment Postman bernama `PAYMENT_SERVER_KEY` dengan nilai yang sama.
 
 Jalankan uji race condition dan kedaluwarsa dari terminal lain saat server dan MongoDB yang sama masih aktif:
 
@@ -86,11 +97,11 @@ Jalankan uji race condition dan kedaluwarsa dari terminal lain saat server dan M
 npm run test:integrity
 ```
 
-Uji integritas membutuhkan data seed, membuat order dan alamat pengujian, lalu mengubah waktu kedaluwarsa order. Hasilnya disimpan ke `postman/integrity-result.json`; jalankan terhadap database pengujian karena data order pengujian dapat tertinggal.
+Uji integritas membutuhkan data seed, membuat order dan alamat pengujian, lalu mengubah waktu kedaluwarsa order. Hasilnya disimpan ke `apps/api/postman/integrity-result.json`; jalankan terhadap database pengujian karena data order pengujian dapat tertinggal.
 
 ### Konfigurasi dan catatan
 
-- Variabel utama ada di `.env.example`: `PORT`, `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `PAYMENT_SERVER_KEY`, dan `ORDER_EXPIRY_MINUTES`.
+- Variabel utama ada di `apps/api/.env.example`: `PORT`, `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `PAYMENT_SERVER_KEY`, dan `ORDER_EXPIRY_MINUTES`.
 - Order menggunakan transaksi MongoDB, sehingga MongoDB dijalankan sebagai replica set melalui Docker Compose.
 - Pembayaran QRIS/VA dan webhook disimulasikan dengan pola Midtrans sandbox; backend belum terhubung ke Midtrans sungguhan.
 - Login Google belum diimplementasikan. Registrasi publik selalu membuat akun buyer; akun admin dibuat melalui seed.

@@ -2,7 +2,7 @@ const express = require('express');
 const { z } = require('zod');
 const { Order, ORDER_STATUS } = require('../models');
 const { AppError, asyncHandler, ok, parsePaging, paginationMeta } = require('../utils');
-const { authenticate, requireRole, validate } = require('../middleware');
+const { authenticate, requireRole, validate } = require('../middlewares');
 const { createOrder, cancelOrder } = require('../services/orderService');
 const paymentRoutes = require('./payments');
 

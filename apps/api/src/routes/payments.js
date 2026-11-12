@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { z } = require('zod');
 const { Order, Payment } = require('../models');
 const { AppError, asyncHandler, ok } = require('../utils');
-const { validate } = require('../middleware');
+const { validate } = require('../middlewares');
 const { applyPaymentResult, cancelOrder } = require('../services/orderService');
 
 // Provider pembayaran disimulasikan (mengikuti pola Midtrans sandbox: transaction_status + signature SHA-512).
@@ -50,11 +50,11 @@ async function createPayment(req, res, paymentMethod) {
   ok(res, payment, `Pembayaran ${paymentMethod === 'qris' ? 'QRIS' : 'transfer bank'} dibuat. Selesaikan sebelum batas waktu.`, 201);
 }
 
-orderPayments.post('/qris', require('../middleware').authenticate, asyncHandler((req, res) => createPayment(req, res, 'qris')));
-orderPayments.post('/bank-transfer', require('../middleware').authenticate, asyncHandler((req, res) => createPayment(req, res, 'bank_transfer')));
+orderPayments.post('/qris', require('../middlewares').authenticate, asyncHandler((req, res) => createPayment(req, res, 'qris')));
+orderPayments.post('/bank-transfer', require('../middlewares').authenticate, asyncHandler((req, res) => createPayment(req, res, 'bank_transfer')));
 orderPayments.get(
   '/',
-  require('../middleware').authenticate,
+  require('../middlewares').authenticate,
   asyncHandler(async (req, res) => {
     const order = await Order.findOne({ _id: req.params.id, userId: req.user._id });
     if (!order) throw new AppError(404, 'Order tidak ditemukan');

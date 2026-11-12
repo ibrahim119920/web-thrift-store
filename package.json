@@ -1,6 +1,7 @@
 {
-  "name": "wanttosell-thrift-store",
+  "name": "wanttosell",
   "version": "1.0.0",
+  "private": true,
   "description": "Thrift store web app",
   "homepage": "https://github.com/ibrahim119920/web-thrift-store#readme",
   "bugs": {
@@ -10,28 +11,18 @@
     "type": "git",
     "url": "git+https://github.com/ibrahim119920/web-thrift-store.git"
   },
-  "type": "commonjs",
-  "main": "server.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "test": "npm run test:api && npm run test:integrity",
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "seed": "node backend/scripts/seed.js",
-    "build:collection": "node scripts/build-collection.js",
-    "test:api": "node scripts/run-tests.js",
-    "test:integrity": "node scripts/integrity-test.js"
-  },
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
-    "dotenv": "^18.0.4",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.10.2",
-    "zod": "^4.6.5"
-  },
-  "devDependencies": {
-    "newman": "^6.2.2",
-    "nodemon": "^3.1.14"
+    "start": "npm run start --workspace=api",
+    "dev": "npm run dev --workspace=api",
+    "dev:api": "npm run dev --workspace=api",
+    "seed": "npm run seed --workspace=api",
+    "test": "npm run test --workspace=api",
+    "test:api": "npm run test:api --workspace=api",
+    "test:integrity": "npm run test:integrity --workspace=api",
+    "build:collection": "npm run build:collection --workspace=api"
   }
 }
