@@ -1,5 +1,6 @@
 .env
-.idea
+.idea/
 CLAUDE.md
-
 node_modules/
+apps/api/postman/*-result.json
+.DS_Store

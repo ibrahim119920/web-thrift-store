@@ -33,27 +33,33 @@ web-thrift-store/
 │   │   ├── postman/                             # Koleksi Postman + laporan hasil Newman
 │   │   ├── .env.example                         # Template variabel environment backend
 │   │   └── package.json                         # Dependensi dan script backend
-│   └── web/                                     # Frontend Next.js 15 (workspace "web")
-│       ├── src/app/                             # Halaman (routing berbasis folder)
-│       ├── src/features/                        # UI per fitur (landing, products)
-│       ├── src/components/ui/                   # Komponen shadcn/ui
-│       ├── src/services/                        # Pemanggilan API backend
-│       └── .env.example                         # NEXT_PUBLIC_API_URL
+│   └── web/                                     # Frontend React + Vite + TypeScript (workspace "web")
+│       ├── src/components/                      # UI (ui, layout, auth, product, review)
+│       ├── src/pages/                           # Halaman (public, buyer, admin)
+│       ├── src/context/                         # Auth & Cart context
+│       ├── src/routes/                          # Router & route guard
+│       ├── src/services/                        # Klien API + data mock
+│       ├── src/lib/ , src/types/                # Konstanta, util, tipe
+│       └── .env.example                         # VITE_USE_MOCK, VITE_API_BASE_URL
 ├── packages/
-│   └── shared/                                  # Kode bersama frontend/backend (workspace "@wanttosell/shared")
-│       ├── constants/
-│       └── validators/
-├── infrastructure/                              # Konfigurasi deployment AWS (belum diisi)
-│   ├── aws/{ecs,ecr,s3}/
-│   ├── docker/
-│   └── deployment/
+│   └── shared/                                  # Kode bersama (workspace "@wanttosell/shared")
 ├── docker-compose.yml                           # MongoDB replica set untuk development
 ├── package.json                                 # Root workspace + script pintasan
 ├── package-lock.json
 └── README.md
 ```
 
-Frontend Next.js ada di `apps/web/` (workspace "web"). Untuk menjalankannya, salin `apps/web/.env.example` menjadi `apps/web/.env.local`, nyalakan backend, lalu jalankan `npm run dev:web` dan buka `http://localhost:3000`. Detailnya ada di `apps/web/README.md`.
+## Menjalankan frontend
+
+Frontend memakai React + Vite. Dari root repository:
+
+```bash
+npm install
+cp apps/web/.env.example apps/web/.env.local   # sekali saja
+npm run dev:web                                # http://localhost:5173
+```
+
+Default `VITE_USE_MOCK=true` sehingga frontend jalan tanpa backend. Untuk memakai API asli, set `VITE_USE_MOCK=false`, nyalakan backend (`npm run dev`), dan request `/api` akan diteruskan Vite ke `http://localhost:5000`.
 
 ## Menjalankan backend
 
