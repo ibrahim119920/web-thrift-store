@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "DM Sans:Bold";
+  src: url("https://static.figma.com/font/DMSans_opsz_wght__1") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+}
+@font-face {
+  font-family: "DM Sans:Medium";
+  src: url("https://static.figma.com/font/DMSans_opsz_wght__1") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+}
+@font-face {
+  font-family: "DM Sans:Regular";
+  src: url("https://static.figma.com/font/DMSans_opsz_wght__1") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+}
+@font-face {
+  font-family: "Instrument Serif:Italic";
+  src: url("https://static.figma.com/font/InstrumentSerif-Italic_1") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+}
+@font-face {
+  font-family: "Inter:Black";
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+  font-style: normal;
+  font-weight: 900;
+}
+@font-face {
+  font-family: "Inter:Bold";
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+}
+@font-face {
+  font-family: "Inter:Extra Bold";
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+  font-style: normal;
+  font-weight: 800;
+}
+@font-face {
+  font-family: "Inter:Medium";
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+}
+@font-face {
+  font-family: "Inter:Regular";
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+}
+@font-face {
+  font-family: "Inter:Semi Bold";
+  src: url("https://static.figma.com/font/Inter_1") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+}
+@font-face {
+  font-family: "Space Mono:Bold";
+  src: url("https://static.figma.com/font/SpaceMono-Bold_2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+}
+
+@theme {
+  --color-ink: #121212;
+  --color-muted: #73766f;
+  --color-lime: #dffc01;
+  --color-pink: #fb21a9;
+  --color-canvas: #fafaf8;
+  --font-sans: "Inter", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+  --breakpoint-tablet: 40rem;
+  --breakpoint-desktop: 64rem;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    min-width: 320px;
+    overflow-x: clip;
+    background: white;
+    color: var(--color-ink);
+    font-family: "Inter", Arial, sans-serif;
+  }
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-pink);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  .container-main {
+    width: min(1120px, calc(100% - 32px));
+    margin-inline: auto;
+  }
+  .container-header {
+    width: min(1240px, calc(100% - 32px));
+    margin-inline: auto;
+  }
+  .display-title {
+    font-family: "Inter", Arial, sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.055em;
+    text-transform: uppercase;
+  }
+}
