@@ -4,6 +4,7 @@ const { Order, ORDER_STATUS } = require('../models');
 const { AppError, asyncHandler, ok, parsePaging, paginationMeta } = require('../utils');
 const { authenticate, requireRole, validate } = require('../middlewares');
 const { createOrder, cancelOrder } = require('../services/orderService');
+const { notifyOrder } = require('../services/notificationService');
 const paymentRoutes = require('./payments');
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'ID tidak valid');
@@ -120,6 +121,7 @@ admin.patch(
     }
     order.status = status;
     await order.save();
+    notifyOrder(order._id, status);
     ok(res, order, `Status order diubah menjadi "${status}"`);
   })
 );
