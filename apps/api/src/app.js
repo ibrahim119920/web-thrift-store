@@ -12,6 +12,7 @@ app.get('/api/health', (_req, res) => res.json({ success: true, message: 'WantTo
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
+app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/favorites', require('./routes/favorites'));
 app.use('/api', require('./routes/addresses')); // /shipping-addresses, /shipping/estimate
 app.use('/api/orders', buyerRouter);

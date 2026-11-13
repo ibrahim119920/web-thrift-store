@@ -429,8 +429,18 @@
       "name": "2. Produk (Admin & Katalog)",
       "item": [
         {
-          "name": "POST /api/products (Admin, produk A)",
+          "name": "POST /api/uploads/product-image (Admin)",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Mulai kumpulan baru bila run sebelumnya sudah lengkap (penting saat dijalankan ulang di Postman).",
+                  "if (JSON.parse(pm.collectionVariables.get('imageKeys') || '[]').length >= 4) pm.collectionVariables.set('imageKeys', '[]');"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -439,13 +449,14 @@
                   "pm.test(\"Status code 201\", function () {",
                   "  pm.response.to.have.status(201);",
                   "});",
-                  "pm.test(\"Status awal available, ada minus tags & catatan penjual\", function () {",
+                  "pm.test(\"Berisi presigned URL dan object key\", function () {",
                   "  const j = pm.response.json();",
-                  "  pm.expect(j.data.status).to.eql('available');",
-                  "  pm.expect(j.data.images).to.have.lengthOf(4);",
-                  "  pm.expect(j.data.condition.minusTags).to.eql(['noda kecil']);",
+                  "  pm.expect(j.data.uploadUrl).to.match(/^https:\\/\\//);",
+                  "  pm.expect(j.data.key).to.match(/^products\\/[0-9a-f-]{36}\\.png$/);",
+                  "  pm.expect(j.data.headers['Content-Type']).to.eql('image/png');",
                   "});",
-                  "pm.collectionVariables.set(\"productA\", pm.response.json().data._id);"
+                  "pm.collectionVariables.set(\"uploadUrl\", pm.response.json().data.uploadUrl);",
+                  "pm.collectionVariables.set(\"uploadKey\", pm.response.json().data.key);"
                 ]
               }
             }
@@ -464,7 +475,251 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Kemeja Uji Coba A\",\n  \"description\": \"Kemeja Uji Coba A preloved\",\n  \"category\": \"kemeja\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 55,\n    \"length\": 72\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 100000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=Kemeja%20Uji%20Coba%20A-depan\",\n    \"https://placehold.co/600x800?text=Kemeja%20Uji%20Coba%20A-belakang\",\n    \"https://placehold.co/600x800?text=Kemeja%20Uji%20Coba%20A-samping\",\n    \"https://placehold.co/600x800?text=Kemeja%20Uji%20Coba%20A-detail\"\n  ],\n  \"weight\": 600\n}",
+              "raw": "{\n  \"contentType\": \"image/png\",\n  \"size\": 19\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/uploads/product-image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "uploads",
+                "product-image"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin meminta presigned URL S3 untuk meng-upload 1 foto produk (diulang 4x untuk 4 sudut)."
+          }
+        },
+        {
+          "name": "PUT presigned URL (upload foto ke S3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"S3 menerima upload (200)\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const keys = JSON.parse(pm.collectionVariables.get('imageKeys') || '[]');",
+                  "keys.push(pm.collectionVariables.get('uploadKey'));",
+                  "pm.collectionVariables.set('imageKeys', JSON.stringify(keys));",
+                  "if (keys.length < 4) postman.setNextRequest(\"POST /api/uploads/product-image (Admin)\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "image/png"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "contoh-isi-foto-uji"
+            },
+            "url": "{{uploadUrl}}",
+            "description": "Hak Akses: Presigned URL S3 | Fungsi: Upload langsung ke S3 tanpa melewati server API; diulang sampai terkumpul 4 foto."
+          }
+        },
+        {
+          "name": "POST /api/uploads/product-image (tipe file ditolak)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentType\": \"application/pdf\",\n  \"size\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/uploads/product-image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "uploads",
+                "product-image"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Validasi MIME type: hanya jpeg, png, webp yang boleh di-upload."
+          }
+        },
+        {
+          "name": "POST /api/uploads/product-image (file terlalu besar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentType\": \"image/jpeg\",\n  \"size\": 6291456\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/uploads/product-image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "uploads",
+                "product-image"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Validasi ukuran: maksimal 5 MB per foto."
+          }
+        },
+        {
+          "name": "POST /api/uploads/product-image (sebagai pembeli)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 403\", function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer1Token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentType\": \"image/png\",\n  \"size\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/uploads/product-image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "uploads",
+                "product-image"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Otorisasi RBAC: pembeli tidak boleh meng-upload foto produk."
+          }
+        },
+        {
+          "name": "POST /api/products (Admin, produk A)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Status awal available, ada minus tags & catatan penjual\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.status).to.eql('available');",
+                  "  pm.expect(j.data.images).to.have.lengthOf(4);",
+                  "  pm.expect(j.data.condition.minusTags).to.eql(['noda kecil']);",
+                  "});",
+                  "pm.test(\"Foto dikirim sebagai presigned URL, key tetap tersedia\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.data.imageKeys).to.eql(JSON.parse(pm.collectionVariables.get('imageKeys')));",
+                  "  j.data.images.forEach(u => pm.expect(u).to.match(/^https:\\/\\/.+X-Amz-Signature=/));",
+                  "});",
+                  "pm.collectionVariables.set(\"productA\", pm.response.json().data._id);",
+                  "pm.collectionVariables.set(\"imageViewUrl\", pm.response.json().data.images[0]);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kemeja Uji Coba A\",\n  \"description\": \"Kemeja Uji Coba A preloved\",\n  \"category\": \"kemeja\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 55,\n    \"length\": 72\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 100000,\n  \"images\": {{imageKeys}},\n  \"weight\": 600\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -481,6 +736,29 @@
               ]
             },
             "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin menambah barang unik (1 barang = 1 dokumen) dengan 4 foto, ukuran cm, dan dokumentasi cacat."
+          }
+        },
+        {
+          "name": "GET presigned URL (lihat foto dari S3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"S3 mengembalikan foto yang di-upload\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.text()).to.eql(\"contoh-isi-foto-uji\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{imageViewUrl}}",
+            "description": "Hak Akses: Presigned URL S3 | Fungsi: Foto di bucket private bisa dibuka lewat presigned GET URL dari respons API."
           }
         },
         {
@@ -513,7 +791,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Jaket Uji Coba B\",\n  \"description\": \"Jaket Uji Coba B preloved\",\n  \"category\": \"jaket\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 60,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 250000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=Jaket%20Uji%20Coba%20B-depan\",\n    \"https://placehold.co/600x800?text=Jaket%20Uji%20Coba%20B-belakang\",\n    \"https://placehold.co/600x800?text=Jaket%20Uji%20Coba%20B-samping\",\n    \"https://placehold.co/600x800?text=Jaket%20Uji%20Coba%20B-detail\"\n  ],\n  \"weight\": 600\n}",
+              "raw": "{\n  \"name\": \"Jaket Uji Coba B\",\n  \"description\": \"Jaket Uji Coba B preloved\",\n  \"category\": \"jaket\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 60,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 250000,\n  \"images\": {{imageKeys}},\n  \"weight\": 600\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -562,7 +840,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Kaos Uji Coba C\",\n  \"description\": \"Kaos Uji Coba C preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 60000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=Kaos%20Uji%20Coba%20C-depan\",\n    \"https://placehold.co/600x800?text=Kaos%20Uji%20Coba%20C-belakang\",\n    \"https://placehold.co/600x800?text=Kaos%20Uji%20Coba%20C-samping\",\n    \"https://placehold.co/600x800?text=Kaos%20Uji%20Coba%20C-detail\"\n  ],\n  \"weight\": 600\n}",
+              "raw": "{\n  \"name\": \"Kaos Uji Coba C\",\n  \"description\": \"Kaos Uji Coba C preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 60000,\n  \"images\": {{imageKeys}},\n  \"weight\": 600\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -610,7 +888,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Produk Tiga Foto\",\n  \"description\": \"Produk Tiga Foto preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=x-depan\",\n    \"https://placehold.co/600x800?text=x-belakang\",\n    \"https://placehold.co/600x800?text=x-samping\"\n  ],\n  \"weight\": 600\n}",
+              "raw": "{\n  \"name\": \"Produk Tiga Foto\",\n  \"description\": \"Produk Tiga Foto preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [\n    \"products/00000000-0000-4000-8000-000000000001.jpg\",\n    \"products/00000000-0000-4000-8000-000000000002.jpg\",\n    \"products/00000000-0000-4000-8000-000000000003.jpg\"\n  ],\n  \"weight\": 600\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -627,6 +905,102 @@
               ]
             },
             "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Validasi galeri 4 sudut: menolak produk dengan foto selain 4."
+          }
+        },
+        {
+          "name": "POST /api/products (foto belum di-upload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Produk Foto Palsu\",\n  \"description\": \"Produk Foto Palsu preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [\n    \"products/00000000-0000-4000-8000-000000000001.jpg\",\n    \"products/00000000-0000-4000-8000-000000000002.jpg\",\n    \"products/00000000-0000-4000-8000-000000000003.jpg\",\n    \"products/00000000-0000-4000-8000-000000000004.jpg\"\n  ],\n  \"weight\": 600\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Menolak object key yang tidak ada di S3 (dicek dengan HeadObject)."
+          }
+        },
+        {
+          "name": "POST /api/products (foto berupa URL luar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code 400\", function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Produk Foto URL\",\n  \"description\": \"Produk Foto URL preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=1\",\n    \"https://placehold.co/600x800?text=2\",\n    \"https://placehold.co/600x800?text=3\",\n    \"https://placehold.co/600x800?text=4\"\n  ],\n  \"weight\": 600\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Menolak URL gambar dari luar; foto wajib di-upload lewat S3."
           }
         },
         {
@@ -658,7 +1032,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Produk Ilegal\",\n  \"description\": \"Produk Ilegal preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [\n    \"https://placehold.co/600x800?text=Produk%20Ilegal-depan\",\n    \"https://placehold.co/600x800?text=Produk%20Ilegal-belakang\",\n    \"https://placehold.co/600x800?text=Produk%20Ilegal-samping\",\n    \"https://placehold.co/600x800?text=Produk%20Ilegal-detail\"\n  ],\n  \"weight\": 600\n}",
+              "raw": "{\n  \"name\": \"Produk Ilegal\",\n  \"description\": \"Produk Ilegal preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": {{imageKeys}},\n  \"weight\": 600\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1717,6 +2091,7 @@
                 "exec": [
                   "const tx = pm.collectionVariables.get(\"txA\");",
                   "const amount = pm.collectionVariables.get(\"payAmount\");",
+                  "const key = pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey');",
                   "const sig = 'deadbeef';",
                   "pm.collectionVariables.set('sig', sig);",
                   "pm.collectionVariables.set('curTx', tx);"
@@ -1775,7 +2150,8 @@
                 "exec": [
                   "const tx = pm.collectionVariables.get(\"txA\");",
                   "const amount = pm.collectionVariables.get(\"payAmount\");",
-                  "const sig = CryptoJS.SHA512(tx + \"settlement\" + amount + (pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey'))).toString(CryptoJS.enc.Hex);",
+                  "const key = pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey');",
+                  "const sig = CryptoJS.SHA512(tx + \"settlement\" + amount + key).toString(CryptoJS.enc.Hex);",
                   "pm.collectionVariables.set('sig', sig);",
                   "pm.collectionVariables.set('curTx', tx);"
                 ]
@@ -1836,7 +2212,8 @@
                 "exec": [
                   "const tx = pm.collectionVariables.get(\"txA\");",
                   "const amount = pm.collectionVariables.get(\"payAmount\");",
-                  "const sig = CryptoJS.SHA512(tx + \"settlement\" + amount + (pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey'))).toString(CryptoJS.enc.Hex);",
+                  "const key = pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey');",
+                  "const sig = CryptoJS.SHA512(tx + \"settlement\" + amount + key).toString(CryptoJS.enc.Hex);",
                   "pm.collectionVariables.set('sig', sig);",
                   "pm.collectionVariables.set('curTx', tx);"
                 ]
@@ -2868,7 +3245,8 @@
                 "exec": [
                   "const tx = pm.collectionVariables.get(\"txB\");",
                   "const amount = pm.collectionVariables.get(\"payAmountB\");",
-                  "const sig = CryptoJS.SHA512(tx + \"expire\" + amount + (pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey'))).toString(CryptoJS.enc.Hex);",
+                  "const key = pm.environment.get('PAYMENT_SERVER_KEY') || pm.collectionVariables.get('paymentServerKey');",
+                  "const sig = CryptoJS.SHA512(tx + \"expire\" + amount + key).toString(CryptoJS.enc.Hex);",
                   "pm.collectionVariables.set('sig', sig);",
                   "pm.collectionVariables.set('curTx', tx);"
                 ]

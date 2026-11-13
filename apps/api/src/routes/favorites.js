@@ -3,6 +3,7 @@ const { z } = require('zod');
 const { Product, Wishlist } = require('../models');
 const { AppError, asyncHandler, ok } = require('../utils');
 const { authenticate, validate } = require('../middlewares');
+const { withImageUrls } = require('../services/storageService');
 
 router.use(authenticate);
 
@@ -10,7 +11,10 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const items = await Wishlist.find({ userId: req.user._id }).sort({ createdAt: -1 }).populate('productId');
-    ok(res, items, undefined, 200, { count: items.length });
+    const data = await Promise.all(
+      items.map(async (i) => ({ ...i.toObject(), productId: i.productId ? await withImageUrls(i.productId) : null }))
+    );
+    ok(res, data, undefined, 200, { count: data.length });
   })
 );
 

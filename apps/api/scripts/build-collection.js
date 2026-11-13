@@ -32,14 +32,33 @@ function req(name, method, url, { access, fn, auth, body, tests = [], pre = [] }
     request: {
       method,
       header,
-      ...(body && { body: { mode: 'raw', raw: JSON.stringify(body, null, 2), options: { raw: { language: 'json' } } } }),
+      ...(body && { body: { mode: 'raw', raw: JSON.stringify(body, null, 2).replace(IMAGE_KEYS_VAR, '{{imageKeys}}'), options: { raw: { language: 'json' } } } }),
       url: makeUrl(`{{baseUrl}}${url}`),
       description: `Hak Akses: ${access} | Fungsi: ${fn}`,
     },
   };
 }
 
-const images = (slug) => ['depan', 'belakang', 'samping', 'detail'].map((a) => `https://placehold.co/600x800?text=${slug}-${a}`);
+// Request ke URL di luar API (presigned URL S3). urlVar = nama collection variable yang berisi URL lengkap.
+function external(name, method, urlVar, { fn, header = [], raw, tests = [] }) {
+  return {
+    name,
+    event: tests.length ? [{ listen: 'test', script: { type: 'text/javascript', exec: tests.join('\n').split('\n') } }] : [],
+    request: {
+      method,
+      header,
+      ...(raw !== undefined && { body: { mode: 'raw', raw } }),
+      url: `{{${urlVar}}}`,
+      description: `Hak Akses: Presigned URL S3 | Fungsi: ${fn}`,
+    },
+  };
+}
+
+// Array object key hasil upload disimpan sebagai JSON di variabel {{imageKeys}} lalu disisipkan apa adanya ke body.
+const IMAGE_KEYS_VAR = '"__IMAGE_KEYS__"';
+const UPLOAD_REQ = 'POST /api/uploads/product-image (Admin)';
+const TEST_IMAGE = 'contoh-isi-foto-uji';
+const fakeKey = (n) => `products/00000000-0000-4000-8000-00000000000${n}.jpg`;
 const productBody = (name, category, chest, length, price) => ({
   name,
   description: `${name} preloved`,
@@ -48,7 +67,7 @@ const productBody = (name, category, chest, length, price) => ({
   size: { label: 'L', chest, length },
   condition: { grade: 'B', description: 'Ada noda kecil di lengan', minusTags: ['noda kecil'], sellerNote: 'Bisa dicek via foto detail' },
   price,
-  images: images(encodeURIComponent(name)),
+  images: '__IMAGE_KEYS__',
   weight: 600,
 });
 const webhook = (txVar, statusName, amountVar = 'payAmount', tamper = false) => ({
@@ -125,10 +144,47 @@ const items = [
   {
     name: '2. Produk (Admin & Katalog)',
     item: [
+      req(UPLOAD_REQ, 'POST', '/uploads/product-image', {
+        access: 'Private (Bearer Token Admin)', fn: 'Admin meminta presigned URL S3 untuk meng-upload 1 foto produk (diulang 4x untuk 4 sudut).', auth: 'adminToken',
+        body: { contentType: 'image/png', size: TEST_IMAGE.length },
+        pre: ["// Mulai kumpulan baru bila run sebelumnya sudah lengkap (penting saat dijalankan ulang di Postman).", "if (JSON.parse(pm.collectionVariables.get('imageKeys') || '[]').length >= 4) pm.collectionVariables.set('imageKeys', '[]');"],
+        tests: [status(201), T('Berisi presigned URL dan object key', `  ${json}\n  pm.expect(j.data.uploadUrl).to.match(/^https:\\/\\//);\n  pm.expect(j.data.key).to.match(/^products\\/[0-9a-f-]{36}\\.png$/);\n  pm.expect(j.data.headers['Content-Type']).to.eql('image/png');`), save('uploadUrl', 'pm.response.json().data.uploadUrl'), save('uploadKey', 'pm.response.json().data.key')],
+      }),
+      external('PUT presigned URL (upload foto ke S3)', 'PUT', 'uploadUrl', {
+        fn: 'Upload langsung ke S3 tanpa melewati server API; diulang sampai terkumpul 4 foto.',
+        header: [{ key: 'Content-Type', value: 'image/png' }],
+        raw: TEST_IMAGE,
+        tests: [
+          T('S3 menerima upload (200)', '  pm.response.to.have.status(200);'),
+          "const keys = JSON.parse(pm.collectionVariables.get('imageKeys') || '[]');",
+          "keys.push(pm.collectionVariables.get('uploadKey'));",
+          "pm.collectionVariables.set('imageKeys', JSON.stringify(keys));",
+          `if (keys.length < 4) postman.setNextRequest(${JSON.stringify(UPLOAD_REQ)});`,
+        ],
+      }),
+      req('POST /api/uploads/product-image (tipe file ditolak)', 'POST', '/uploads/product-image', {
+        access: 'Private (Bearer Token Admin)', fn: 'Validasi MIME type: hanya jpeg, png, webp yang boleh di-upload.', auth: 'adminToken',
+        body: { contentType: 'application/pdf', size: 1000 },
+        tests: [status(400)],
+      }),
+      req('POST /api/uploads/product-image (file terlalu besar)', 'POST', '/uploads/product-image', {
+        access: 'Private (Bearer Token Admin)', fn: 'Validasi ukuran: maksimal 5 MB per foto.', auth: 'adminToken',
+        body: { contentType: 'image/jpeg', size: 6 * 1024 * 1024 },
+        tests: [status(400)],
+      }),
+      req('POST /api/uploads/product-image (sebagai pembeli)', 'POST', '/uploads/product-image', {
+        access: 'Private (Bearer Token Admin)', fn: 'Otorisasi RBAC: pembeli tidak boleh meng-upload foto produk.', auth: 'buyer1Token',
+        body: { contentType: 'image/png', size: 1000 },
+        tests: [status(403)],
+      }),
       req('POST /api/products (Admin, produk A)', 'POST', '/products', {
         access: 'Private (Bearer Token Admin)', fn: 'Admin menambah barang unik (1 barang = 1 dokumen) dengan 4 foto, ukuran cm, dan dokumentasi cacat.', auth: 'adminToken',
         body: productBody('Kemeja Uji Coba A', 'kemeja', 55, 72, 100000),
-        tests: [status(201), T('Status awal available, ada minus tags & catatan penjual', `  ${json}\n  pm.expect(j.data.status).to.eql('available');\n  pm.expect(j.data.images).to.have.lengthOf(4);\n  pm.expect(j.data.condition.minusTags).to.eql(['noda kecil']);`), save('productA', 'pm.response.json().data._id')],
+        tests: [status(201), T('Status awal available, ada minus tags & catatan penjual', `  ${json}\n  pm.expect(j.data.status).to.eql('available');\n  pm.expect(j.data.images).to.have.lengthOf(4);\n  pm.expect(j.data.condition.minusTags).to.eql(['noda kecil']);`), T('Foto dikirim sebagai presigned URL, key tetap tersedia', `  ${json}\n  pm.expect(j.data.imageKeys).to.eql(JSON.parse(pm.collectionVariables.get('imageKeys')));\n  j.data.images.forEach(u => pm.expect(u).to.match(/^https:\\/\\/.+X-Amz-Signature=/));`), save('productA', 'pm.response.json().data._id'), save('imageViewUrl', 'pm.response.json().data.images[0]')],
+      }),
+      external('GET presigned URL (lihat foto dari S3)', 'GET', 'imageViewUrl', {
+        fn: 'Foto di bucket private bisa dibuka lewat presigned GET URL dari respons API.',
+        tests: [T('S3 mengembalikan foto yang di-upload', `  pm.response.to.have.status(200);\n  pm.expect(pm.response.text()).to.eql(${JSON.stringify(TEST_IMAGE)});`)],
       }),
       req('POST /api/products (Admin, produk B)', 'POST', '/products', {
         access: 'Private (Bearer Token Admin)', fn: 'Menambah produk B (dipakai untuk skenario pembatalan & pembayaran kedaluwarsa).', auth: 'adminToken',
@@ -142,7 +198,17 @@ const items = [
       }),
       req('POST /api/products (hanya 3 foto)', 'POST', '/products', {
         access: 'Private (Bearer Token Admin)', fn: 'Validasi galeri 4 sudut: menolak produk dengan foto selain 4.', auth: 'adminToken',
-        body: { ...productBody('Produk Tiga Foto', 'kaos', 50, 68, 1000), images: images('x').slice(0, 3) },
+        body: { ...productBody('Produk Tiga Foto', 'kaos', 50, 68, 1000), images: [1, 2, 3].map(fakeKey) },
+        tests: [status(400)],
+      }),
+      req('POST /api/products (foto belum di-upload)', 'POST', '/products', {
+        access: 'Private (Bearer Token Admin)', fn: 'Menolak object key yang tidak ada di S3 (dicek dengan HeadObject).', auth: 'adminToken',
+        body: { ...productBody('Produk Foto Palsu', 'kaos', 50, 68, 1000), images: [1, 2, 3, 4].map(fakeKey) },
+        tests: [status(400)],
+      }),
+      req('POST /api/products (foto berupa URL luar)', 'POST', '/products', {
+        access: 'Private (Bearer Token Admin)', fn: 'Menolak URL gambar dari luar; foto wajib di-upload lewat S3.', auth: 'adminToken',
+        body: { ...productBody('Produk Foto URL', 'kaos', 50, 68, 1000), images: [1, 2, 3, 4].map((n) => `https://placehold.co/600x800?text=${n}`) },
         tests: [status(400)],
       }),
       req('POST /api/products (sebagai pembeli)', 'POST', '/products', {

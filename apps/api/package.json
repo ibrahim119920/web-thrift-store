@@ -13,9 +13,12 @@
     "test:api": "node scripts/run-tests.js",
     "test:integrity": "node scripts/integrity-test.js",
     "build:collection": "node scripts/build-collection.js",
-    "email:send": "node scripts/send-email.js"
+    "email:send": "node scripts/send-email.js",
+    "images:attach": "node scripts/attach-product-images.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1168.0",
+    "@aws-sdk/s3-request-presigner": "^3.1168.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.4",

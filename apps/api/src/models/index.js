@@ -44,6 +44,7 @@ const productSchema = new Schema(
       sellerNote: { type: String, default: '' }, // [ekstensi] "catatan penjual" (fitur 2 di rancangan)
     },
     price: { type: Number, required: true, min: 0 },
+    // Object key S3 (products/<uuid>.<ext>). Data seed lama boleh berisi URL penuh.
     images: {
       type: [String],
       validate: { validator: (v) => v.length === 4, message: 'Produk wajib memiliki 4 foto (4 sudut)' },
