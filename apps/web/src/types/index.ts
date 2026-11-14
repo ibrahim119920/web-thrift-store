@@ -97,6 +97,12 @@ export interface PaymentRecord {
   };
 }
 
+export interface PaymentConfig {
+  mode: "qris-core" | "snap";
+  isProduction: boolean;
+  expiryMinutes: number;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   message: string;

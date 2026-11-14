@@ -93,6 +93,7 @@ async function loadPayableOrder({ orderId, user }) {
  * Idempoten: selama masih ada pembayaran pending yang punya redirectUrl, token lama dipakai lagi.
  */
 async function createSnapForOrder({ orderId, user }) {
+  if (!midtrans.isProduction()) throw new AppError(403, 'Snap hanya aktif di production. Gunakan QRIS Core untuk sandbox.');
   const order = await loadPayableOrder({ orderId, user });
 
   const reusable = await Payment.findOne({ orderId: order._id, provider: 'midtrans', status: 'pending', redirectUrl: { $ne: null } });

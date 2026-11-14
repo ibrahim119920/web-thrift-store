@@ -121,14 +121,21 @@ Uji integritas membutuhkan data seed, membuat order dan alamat pengujian, lalu m
 
 - Variabel utama ada di `apps/api/.env.example`: `PORT`, `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `ORDER_EXPIRY_MINUTES`, dan kredensial Midtrans.
 - Order menggunakan transaksi MongoDB, sehingga MongoDB dijalankan sebagai replica set melalui Docker Compose.
-- Pembayaran memakai **Midtrans Snap** (`POST /api/orders/:id/payments/snap`). Endpoint simulasi `qris`/`bank-transfer` tetap ada untuk demo lokal dan koleksi Postman; matikan dengan `PAYMENT_SIMULATION=false`.
+- Pembayaran memakai **Midtrans**: sandbox → **Core API QRIS**, production → **Snap**. Endpoint simulasi `qris`/`bank-transfer` tetap ada untuk demo lokal dan koleksi Postman; matikan dengan `PAYMENT_SIMULATION=false`.
 - Login Google belum diimplementasikan. Registrasi publik selalu membuat akun buyer; akun admin dibuat melalui seed.
 
 ### Pembayaran Midtrans
 
-Alur: `POST /api/orders/:id/payments/snap` → backend membuat Snap transaction (`order_id` = `orderNumber`) → frontend mengarahkan pembeli ke `redirect_url` → Midtrans memanggil `POST /api/payments/webhook` → status payment/order diperbarui. Bila webhook belum sampai (mis. saat development di localhost), status pending ikut disinkronkan ke API Midtrans saat pembeli polling daftar pembayaran.
+Mode pembayaran ditentukan `MIDTRANS_IS_PRODUCTION` dan dibaca frontend dari `GET /api/payments/config`:
 
-Khusus sandbox tersedia `POST /api/orders/:id/payments/qris-core` (Core API QRIS). Responsnya berisi `paymentData.qrUrl` (URL gambar QR Midtrans). Halaman pembayaran menampilkan gambar QR tersebut **dan** QR kecil berisi URL itu, sehingga bisa dipindai langsung oleh aplikasi simulator di repository terpisah [`midtrans-qris-sim`](https://github.com/ibrahim119920/midtrans-qris-sim). Endpoint ini menolak berjalan saat `MIDTRANS_IS_PRODUCTION=true`.
+| Mode | `MIDTRANS_IS_PRODUCTION` | Endpoint aktif | Tampilan halaman bayar |
+| --- | --- | --- | --- |
+| Sandbox | `false` | `POST /api/orders/:id/payments/qris-core` | QRIS dibuat otomatis + QR pembayaran + QR URL untuk simulator |
+| Production | `true` | `POST /api/orders/:id/payments/snap` | Tombol redirect ke halaman Midtrans |
+
+Endpoint yang tidak sesuai mode ditolak `403` (mis. `/payments/snap` di sandbox). Pembayaran Core API sandbox mengembalikan `paymentData.qrUrl` (URL gambar QR Midtrans); halaman pembayaran menampilkan gambar QR itu **dan** QR kecil berisi URL tersebut, sehingga bisa dipindai aplikasi simulator di repository terpisah [`midtrans-qris-sim`](https://github.com/ibrahim119920/midtrans-qris-sim).
+
+Kedua mode memakai webhook yang sama (`POST /api/payments/webhook`, verifikasi `signature_key`). Bila webhook belum sampai (mis. development di localhost), status pending ikut disinkronkan ke API Midtrans saat pembeli polling daftar pembayaran.
 
 Environment backend yang wajib diisi untuk produksi:
 
@@ -136,7 +143,7 @@ Environment backend yang wajib diisi untuk produksi:
 | --- | --- | --- |
 | `MIDTRANS_SERVER_KEY` | `Mid-server-xxxx` / `SB-Mid-server-xxxx` | **Rahasia**, hanya di backend |
 | `MIDTRANS_CLIENT_KEY` | `Mid-client-xxxx` / `SB-Mid-client-xxxx` | Hanya untuk popup Snap.js (mode redirect tidak perlu) |
-| `MIDTRANS_IS_PRODUCTION` | `true` / `false` | `false` = sandbox |
+| `MIDTRANS_IS_PRODUCTION` | `true` / `false` | `false` = sandbox (Core API QRIS), `true` = production (Snap) |
 | `FRONTEND_URL` | `https://wanttosell.vercel.app` | Untuk `callbacks.finish` setelah bayar |
 | `MIDTRANS_NOTIFICATION_URL` | `https://api.domainanda.com/api/payments/webhook` | Daftarkan juga di dashboard Midtrans |
 | `PAYMENT_SIMULATION` | `false` | Matikan endpoint simulasi di production |
