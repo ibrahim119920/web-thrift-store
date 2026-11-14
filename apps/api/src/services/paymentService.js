@@ -136,7 +136,12 @@ async function createCoreQrisForOrder({ orderId, user }) {
   const order = await loadPayableOrder({ orderId, user });
 
   // Pakai ulang QR yang masih pending agar memindai ulang tidak membuat transaksi baru.
-  const reusable = await Payment.findOne({ orderId: order._id, provider: 'midtrans', status: 'pending', 'paymentData.qrUrl': { $ne: null } });
+  const reusable = await Payment.findOne({
+    orderId: order._id,
+    provider: 'midtrans',
+    status: 'pending',
+    'paymentData.qrUrl': { $regex: '^https://api\\.sandbox\\.midtrans\\.com/v2/qris/' },
+  });
   if (reusable) return reusable;
 
   const address = await ShippingAddress.findById(order.shippingAddressId);
@@ -144,9 +149,9 @@ async function createCoreQrisForOrder({ orderId, user }) {
 
   const charge = await midtrans.chargeQrisCore(buildCoreQrisPayload({ order, user, address }));
   const actions = Array.isArray(charge.actions) ? charge.actions : [];
-  const qrUrl =
-    actions.find((action) => action.name === 'generate-qr-code-v2')?.url ||
-    actions.find((action) => action.name === 'generate-qr-code')?.url;
+  // Hanya 'generate-qr-code' (api.sandbox.midtrans.com/v2/qris/<uuid>/qr-code) yang dibaca simulator.
+  // 'generate-qr-code-v2' mengarah ke merchants-app.sbx.midtrans.com dan tidak bisa dipindai simulator.
+  const qrUrl = actions.find((action) => action.name === 'generate-qr-code')?.url;
   if (!qrUrl) throw new AppError(502, 'Midtrans tidak mengembalikan URL gambar QR');
 
   await Payment.updateMany({ orderId: order._id, status: 'pending' }, { $set: { status: 'expired' } });
