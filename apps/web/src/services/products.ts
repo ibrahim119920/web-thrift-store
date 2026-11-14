@@ -26,10 +26,10 @@ export interface ProductQuery {
   brand?: string;
   minPrice?: number;
   maxPrice?: number;
-  minChest?: number;
-  maxChest?: number;
-  minLength?: number;
-  maxLength?: number;
+  chestMin?: number;
+  chestMax?: number;
+  lengthMin?: number;
+  lengthMax?: number;
   page?: number;
   limit?: number;
   status?: string;
@@ -63,14 +63,14 @@ export async function getProducts(query: ProductQuery = {}) {
     data = data.filter((product) => product.price >= query.minPrice!);
   if (query.maxPrice !== undefined)
     data = data.filter((product) => product.price <= query.maxPrice!);
-  if (query.minChest !== undefined)
-    data = data.filter((product) => product.size.chest >= query.minChest!);
-  if (query.maxChest !== undefined)
-    data = data.filter((product) => product.size.chest <= query.maxChest!);
-  if (query.minLength !== undefined)
-    data = data.filter((product) => product.size.length >= query.minLength!);
-  if (query.maxLength !== undefined)
-    data = data.filter((product) => product.size.length <= query.maxLength!);
+  if (query.chestMin !== undefined)
+    data = data.filter((product) => product.size.chest >= query.chestMin!);
+  if (query.chestMax !== undefined)
+    data = data.filter((product) => product.size.chest <= query.chestMax!);
+  if (query.lengthMin !== undefined)
+    data = data.filter((product) => product.size.length >= query.lengthMin!);
+  if (query.lengthMax !== undefined)
+    data = data.filter((product) => product.size.length <= query.lengthMax!);
   data.sort((a, b) =>
     query.sort === "price_asc"
       ? a.price - b.price
