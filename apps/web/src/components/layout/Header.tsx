@@ -1,5 +1,5 @@
 import { Heart, Search, ShoppingBag, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
@@ -15,10 +15,29 @@ export function Header() {
     location.pathname === "/shop" ? searchParams.get("q") || "" : "",
   );
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (location.pathname === "/shop") setQuery(searchParams.get("q") || "");
   }, [location.pathname, searchParams.toString()]);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const closeOnOutside = (event: MouseEvent | TouchEvent) => {
+      if (!profileRef.current?.contains(event.target as Node)) setProfileOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("touchstart", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      document.removeEventListener("touchstart", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [profileOpen]);
 
   const search = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -72,7 +91,7 @@ export function Header() {
             </>
           )}
           {user ? (
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
                 type="button"
                 onClick={() => setProfileOpen((open) => !open)}

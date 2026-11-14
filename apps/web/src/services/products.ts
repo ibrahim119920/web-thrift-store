@@ -22,7 +22,6 @@ const writeMockProducts = (products: Product[]) =>
 export interface ProductQuery {
   category?: string;
   q?: string;
-  keyword?: string;
   sort?: string;
   brand?: string;
   minPrice?: number;
@@ -46,15 +45,14 @@ export async function getProducts(query: ProductQuery = {}) {
       )}`,
     );
   let data = readMockProducts();
-  const keyword = query.keyword || query.q;
   if (!query.status) data = data.filter((product) => product.status === "available");
   if (query.category && query.category !== "semua")
     data = data.filter((product) => product.category === query.category);
-  if (keyword)
+  if (query.q)
     data = data.filter((product) =>
       `${product.name} ${product.brand} ${product.category}`
         .toLowerCase()
-        .includes(keyword.toLowerCase()),
+        .includes(query.q!.toLowerCase()),
     );
   if (query.brand)
     data = data.filter((product) =>

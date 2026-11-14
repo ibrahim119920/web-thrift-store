@@ -87,7 +87,7 @@ export function ShopPage() {
 
   const buildQuery = useCallback(
     (nextPage: number): ProductQuery => ({
-      keyword: keyword || undefined,
+      q: keyword || undefined,
       category: category === "semua" ? undefined : category,
       sort,
       brand: appliedFilters.brand || undefined,

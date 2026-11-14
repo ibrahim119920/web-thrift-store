@@ -292,7 +292,7 @@ function OrderDetail({ order }: { order: Order }) {
               return (
                 <li
                   key={step}
-                  className={`border-t-4 pt-3 text-xs font-bold ${
+                  className={`border-b-4 pb-3 text-xs font-bold ${
                     reached ? "border-ink text-ink" : "border-[#e0e0da] text-muted"
                   }`}
                 >
