@@ -1,6 +1,7 @@
 import {
   ArrowUpRight,
   CircleDollarSign,
+  ImagePlus,
   LayoutDashboard,
   LogOut,
   PackageCheck,
@@ -17,7 +18,7 @@ import { Button } from "../../components/ui/Button";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useAuth } from "../../context/AuthContext";
-import { CATEGORIES } from "../../lib/constants";
+import { CATEGORIES, USE_MOCK } from "../../lib/constants";
 import { formatRupiah } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel } from "../../lib/order";
 import { ordersService } from "../../services";
@@ -27,6 +28,8 @@ import {
   getAdminProducts,
   updateProduct,
 } from "../../services/products";
+import { ApiError } from "../../services/api";
+import { ALLOWED_IMAGE_TYPES, isImageKey, uploadProductImage } from "../../services/uploads";
 import type { Order, OrderStatus, Product } from "../../types";
 
 const nextOrderAction: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
@@ -49,8 +52,14 @@ type ProductDraft = {
   conditionDescription: string;
   minusTags: string;
   sellerNote: string;
-  images: string;
 };
+
+const PHOTO_ANGLES = ["Depan", "Belakang", "Samping", "Detail"];
+
+// key: object key S3 yang dikirim ke API; preview: URL yang bisa ditampilkan browser.
+type PhotoSlot = { key: string; preview: string; uploading: boolean; error: string };
+
+const emptyPhoto: PhotoSlot = { key: "", preview: "", uploading: false, error: "" };
 
 const emptyDraft: ProductDraft = {
   name: "",
@@ -66,7 +75,6 @@ const emptyDraft: ProductDraft = {
   conditionDescription: "",
   minusTags: "",
   sellerNote: "",
-  images: "",
 };
 
 export function AdminDashboardPage() {
@@ -493,15 +501,47 @@ function ProductEditor({
           conditionDescription: product.condition.description,
           minusTags: product.condition.minusTags.join(", "),
           sellerNote: product.condition.sellerNote,
-          images: product.images.join(", "),
         }
       : emptyDraft,
   );
+  const [photos, setPhotos] = useState<PhotoSlot[]>(() =>
+    PHOTO_ANGLES.map((_, index) =>
+      product?.images[index]
+        ? {
+            ...emptyPhoto,
+            key: product.imageKeys?.[index] ?? product.images[index],
+            preview: product.images[index],
+          }
+        : emptyPhoto,
+    ),
+  );
+  const [photosChanged, setPhotosChanged] = useState(!product);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const update = <Key extends keyof ProductDraft>(key: Key, value: ProductDraft[Key]) =>
     setDraft((current) => ({ ...current, [key]: value }));
+
+  const setPhoto = (index: number, slot: Partial<PhotoSlot>) =>
+    setPhotos((current) =>
+      current.map((item, position) => (position === index ? { ...item, ...slot } : item)),
+    );
+
+  // Foto langsung di-upload ke S3 begitu dipilih; yang disimpan di draft hanya object key-nya.
+  const choosePhoto = async (index: number, file: File | undefined) => {
+    if (!file) return;
+    setPhotosChanged(true);
+    setPhoto(index, { uploading: true, error: "" });
+    try {
+      const key = await uploadProductImage(file);
+      setPhoto(index, { key, preview: URL.createObjectURL(file), uploading: false });
+    } catch (uploadError) {
+      setPhoto(index, {
+        uploading: false,
+        error: uploadError instanceof Error ? uploadError.message : "Upload foto gagal.",
+      });
+    }
+  };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -517,8 +557,17 @@ function ProductEditor({
       setError("Lengkapi nama, brand, harga, label ukuran, ukuran cm, dan deskripsi.");
       return;
     }
-    if (draft.images.split(",").filter((url) => url.trim()).length !== 4) {
-      setError("Isi tepat 4 URL foto (depan, belakang, samping, detail), dipisah koma.");
+    if (photos.some((photo) => photo.uploading)) {
+      setError("Tunggu sampai semua foto selesai di-upload.");
+      return;
+    }
+    if (photos.some((photo) => !photo.key)) {
+      setError("Upload tepat 4 foto (depan, belakang, samping, detail).");
+      return;
+    }
+    // Produk seed lama menyimpan URL eksternal; API hanya menerima object key S3.
+    if (photosChanged && !USE_MOCK && photos.some((photo) => !isImageKey(photo.key))) {
+      setError("Produk ini masih memakai foto lama. Ganti keempat fotonya agar bisa disimpan.");
       return;
     }
     setSaving(true);
@@ -535,10 +584,8 @@ function ProductEditor({
       },
       weight: Number(draft.weight) || 300,
       description: draft.description.trim(),
-      images: draft.images
-        .split(",")
-        .map((url) => url.trim())
-        .filter(Boolean),
+      // Saat edit tanpa ganti foto, field images tidak dikirim supaya foto lama tetap dipakai.
+      ...(photosChanged ? { images: photos.map((photo) => photo.key) } : {}),
       condition: {
         grade: draft.grade,
         description: draft.conditionDescription.trim() || "Kondisi sesuai foto.",
@@ -552,8 +599,12 @@ function ProductEditor({
     try {
       const response = product ? await updateProduct(product._id, body) : await createProduct(body);
       onSave(response.data);
-    } catch {
-      setError("Produk belum dapat disimpan. Coba lagi.");
+    } catch (saveError) {
+      setError(
+        saveError instanceof ApiError
+          ? saveError.message
+          : "Produk belum dapat disimpan. Coba lagi.",
+      );
     } finally {
       setSaving(false);
     }
@@ -635,11 +686,21 @@ function ProductEditor({
               onChange={(value) => update("grade", value as ProductDraft["grade"])}
               options={["A", "B", "C"].map((value) => ({ value, label: `Grade ${value}` }))}
             />
-            <EditorField
-              label="URL 4 foto (depan, belakang, samping, detail), pisah koma"
-              value={draft.images}
-              onChange={(value) => update("images", value)}
-            />
+            <div className="tablet:col-span-2">
+              <span className="mb-2 block text-xs font-semibold">
+                4 foto barang (JPG, PNG, atau WebP, maks. 5 MB)
+              </span>
+              <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">
+                {PHOTO_ANGLES.map((angle, index) => (
+                  <PhotoPicker
+                    key={angle}
+                    angle={angle}
+                    slot={photos[index]}
+                    onPick={(file) => void choosePhoto(index, file)}
+                  />
+                ))}
+              </div>
+            </div>
             <EditorField
               label="Deskripsi barang"
               value={draft.description}
@@ -679,6 +740,48 @@ function ProductEditor({
         </form>
       </div>
     </div>
+  );
+}
+
+function PhotoPicker({
+  angle,
+  slot,
+  onPick,
+}: {
+  angle: string;
+  slot: PhotoSlot;
+  onPick: (file: File | undefined) => void;
+}) {
+  return (
+    <label className="block cursor-pointer">
+      <div className="relative grid aspect-square place-items-center overflow-hidden border border-dashed border-[#d8d8d2] bg-canvas hover:border-ink">
+        {slot.preview ? (
+          <img src={slot.preview} alt={`Foto ${angle}`} className="size-full object-cover" />
+        ) : (
+          <ImagePlus size={22} className="text-muted" />
+        )}
+        {slot.uploading && (
+          <span className="absolute inset-0 grid place-items-center bg-white/75 text-[10px] font-bold">
+            Mengupload...
+          </span>
+        )}
+      </div>
+      <span className="mt-1 block text-[10px] font-bold text-muted">
+        {angle}
+        {slot.preview ? " · ganti" : ""}
+      </span>
+      {slot.error && <span className="block text-[10px] font-bold text-[#8b2828]">{slot.error}</span>}
+      <input
+        type="file"
+        accept={ALLOWED_IMAGE_TYPES.join(",")}
+        disabled={slot.uploading}
+        className="sr-only"
+        onChange={(event) => {
+          onPick(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+    </label>
   );
 }
 

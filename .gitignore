@@ -4,3 +4,5 @@ CLAUDE.md
 node_modules/
 apps/api/postman/*-result.json
 .DS_Store
+.next/
+dist/

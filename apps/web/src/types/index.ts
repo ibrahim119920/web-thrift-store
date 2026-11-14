@@ -31,7 +31,10 @@ export interface Product {
     sellerNote: string;
   };
   price: number;
+  /** URL siap tampil (presigned GET URL S3, berlaku 1 jam). */
   images: string[];
+  /** Object key S3 mentah; kirim balik ini (bukan `images`) saat mengedit produk. */
+  imageKeys?: string[];
   weight: number;
   status: ProductStatus;
   reviewSummary?: { averageRating: number | null; totalReviews: number };
