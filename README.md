@@ -122,7 +122,7 @@ Uji integritas membutuhkan data seed, membuat order dan alamat pengujian, lalu m
 
 Alur: `POST /api/orders/:id/payments/snap` → backend membuat Snap transaction (`order_id` = `orderNumber`) → frontend mengarahkan pembeli ke `redirect_url` → Midtrans memanggil `POST /api/payments/webhook` → status payment/order diperbarui. Bila webhook belum sampai (mis. saat development di localhost), status pending ikut disinkronkan ke API Midtrans saat pembeli polling daftar pembayaran.
 
-Khusus sandbox tersedia `POST /api/orders/:id/payments/qris-core` (Core API QRIS). Responsnya berisi `paymentData.qrUrl` (URL gambar QR Midtrans). Halaman pembayaran menampilkan gambar QR tersebut **dan** QR kecil berisi URL itu, sehingga bisa dipindai langsung oleh aplikasi simulator di `tools/midtrans-qris-sim`. Endpoint ini menolak berjalan saat `MIDTRANS_IS_PRODUCTION=true`.
+Khusus sandbox tersedia `POST /api/orders/:id/payments/qris-core` (Core API QRIS). Responsnya berisi `paymentData.qrUrl` (URL gambar QR Midtrans). Halaman pembayaran menampilkan gambar QR tersebut **dan** QR kecil berisi URL itu, sehingga bisa dipindai langsung oleh aplikasi simulator di repository terpisah [`midtrans-qris-sim`](https://github.com/ibrahim119920/midtrans-qris-sim). Endpoint ini menolak berjalan saat `MIDTRANS_IS_PRODUCTION=true`.
 
 Environment backend yang wajib diisi untuk produksi:
 

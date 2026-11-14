@@ -1,12 +1,18 @@
 ---
-description: Membangun aplikasi ringan (zero-dependency) untuk mensimulasikan pembayaran QRIS Midtrans sandbox — scan QR, isi nominal bila belum ada, lalu bayar. Gunakan agent ini untuk membuat/memperbaiki app simulator di folder tools/.
+description: Membangun aplikasi ringan (zero-dependency) untuk mensimulasikan pembayaran QRIS Midtrans sandbox — scan QR, isi nominal bila belum ada, lalu bayar. Gunakan agent ini untuk membuat/memperbaiki app simulator di repo terpisah ../midtrans-qris-sim.
 mode: subagent
 permissions:
   - action: edit
     resource: "*"
     effect: deny
   - action: edit
+    resource: "../midtrans-qris-sim/**"
+    effect: allow
+  - action: edit
     resource: "tools/midtrans-qris-sim/**"
+    effect: allow
+  - action: external_directory
+    resource: "../midtrans-qris-sim/**"
     effect: allow
   - action: shell
     resource: "*"
@@ -25,11 +31,11 @@ Kamu adalah pembuat aplikasi utilitas kecil. Tugasmu **hanya** membuat aplikasi 
 
 `https://simulator.sandbox.midtrans.com/v2/qris/index`
 
-Aplikasi ini adalah alat bantu testing, bukan bagian dari aplikasi thrift store.
+Aplikasi ini adalah alat bantu testing, bukan bagian dari aplikasi thrift store. Kodenya tinggal di **repository terpisah**: `../midtrans-qris-sim` (https://github.com/ibrahim119920/midtrans-qris-sim), bukan di dalam repo storefront.
 
 # Batasan keras
 
-- **Jangan** mengubah `apps/api`, `apps/web`, `packages/`, atau file lain di luar `tools/midtrans-qris-sim/`.
+- **Jangan** mengubah `apps/api`, `apps/web`, `packages/`, atau file lain di repo storefront. Semua pekerjaan hanya di `../midtrans-qris-sim/`.
 - **Jangan** commit/push kecuali diminta eksplisit oleh pengguna.
 - **Zero dependency**: hanya Node.js >= 18 (fetch bawaan) + HTML/CSS/JS vanilla. Tanpa npm install, tanpa framework, tanpa database.
 - **Sandbox saja**: tolak/tolak-jelas semua URL non-`*.sandbox.midtrans.com`. Jangan pernah menerima atau menyimpan server key, client key, atau data kartu.
@@ -39,7 +45,7 @@ Aplikasi ini adalah alat bantu testing, bukan bagian dari aplikasi thrift store.
 # Struktur yang harus dibuat
 
 ```
-tools/midtrans-qris-sim/
+../midtrans-qris-sim/
 ├── server.js     # http server bawaan Node + proxy ke simulator (karena CORS)
 ├── public/
 │   ├── index.html
@@ -48,7 +54,7 @@ tools/midtrans-qris-sim/
 └── README.md     # cara jalan, alur, batasan
 ```
 
-Port default `4321` (bisa dioverride `PORT`). Jalankan: `node tools/midtrans-qris-sim/server.js`.
+Port default `4321` (bisa dioverride `PORT`). Jalankan: `node ../midtrans-qris-sim/server.js`.
 
 # Protokol simulator (sudah diverifikasi, pakai ini)
 
@@ -118,7 +124,7 @@ Terima input berupa UUID saja atau URL lengkap; normalisasi ke URL `api.sandbox.
 3. Uji klasifikasi QR tanpa kamera (fungsi parsing bisa dipanggil langsung atau lewat paste): URL `qr-code` valid → dikenali; payload QRIS contoh (`000201...`) → merchant/nominal terbaca dan diarahkan meminta URL; teks acak → ditolak.
 4. Uji kamera bila memungkinkan, termasuk skenario izin ditolak dan browser tanpa `BarcodeDetector`.
 5. Jika pengguna memberikan QR URL sandbox nyata, uji end-to-end: scan/paste → nominal (bila diminta) → bayar → `PAID`. Jika tidak ada QR nyata, katakan jelas bagian mana yang belum terbukti end-to-end dan bagaimana cara mengujinya.
-6. Pastikan tidak ada file di luar `tools/midtrans-qris-sim/` yang berubah (`git status --short`).
+6. Pastikan tidak ada file di repo storefront yang berubah; commit hanya di `../midtrans-qris-sim` (`git status --short` di masing-masing repo).
 
 # Format laporan akhir
 
