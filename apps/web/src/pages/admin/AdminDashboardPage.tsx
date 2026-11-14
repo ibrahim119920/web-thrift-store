@@ -8,6 +8,7 @@ import {
   Plus,
   ShoppingBag,
   Store,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -20,7 +21,12 @@ import { CATEGORIES } from "../../lib/constants";
 import { formatRupiah } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel } from "../../lib/order";
 import { ordersService } from "../../services";
-import { createProduct, getAdminProducts, updateProduct } from "../../services/products";
+import {
+  createProduct,
+  deleteProduct,
+  getAdminProducts,
+  updateProduct,
+} from "../../services/products";
 import type { Order, OrderStatus, Product } from "../../types";
 
 const nextOrderAction: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
@@ -71,6 +77,8 @@ export function AdminDashboardPage() {
   const [trackingDraft, setTrackingDraft] = useState<Record<string, string>>({});
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [orderError, setOrderError] = useState("");
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [productError, setProductError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -111,6 +119,20 @@ export function AdminDashboardPage() {
         : [product, ...current];
     });
     setEditingProduct(null);
+  };
+
+  const removeProduct = async (product: Product) => {
+    if (!window.confirm(`Hapus produk "${product.name}"?`)) return;
+    setProductError("");
+    setDeletingProductId(product._id);
+    try {
+      await deleteProduct(product._id);
+      setProducts((current) => current.filter((item) => item._id !== product._id));
+    } catch (error) {
+      setProductError(error instanceof Error ? error.message : "Produk belum dapat dihapus.");
+    } finally {
+      setDeletingProductId(null);
+    }
   };
 
   const changeOrderStatus = async (order: Order, status: OrderStatus) => {
@@ -239,6 +261,11 @@ export function AdminDashboardPage() {
                   <Plus size={16} /> Tambah produk
                 </Button>
               </div>
+              {productError && (
+                <p className="border-b border-[#e8e8e3] px-5 py-3 text-xs font-bold text-red-600">
+                  {productError}
+                </p>
+              )}
               {loading ? (
                 <div className="p-5">
                   <Skeleton className="h-72 w-full" />
@@ -281,13 +308,32 @@ export function AdminDashboardPage() {
                             <ProductStatus status={product.status} />
                           </td>
                           <td className="px-5 py-3">
-                            <button
-                              type="button"
-                              onClick={() => setEditingProduct(product)}
-                              className="inline-flex min-h-9 items-center gap-2 border border-ink px-3 text-[11px] font-bold"
-                            >
-                              <Pencil size={13} /> Edit
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingProduct(product)}
+                                className="inline-flex min-h-9 items-center gap-2 border border-ink px-3 text-[11px] font-bold"
+                              >
+                                <Pencil size={13} /> Edit
+                              </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  product.status !== "available" ||
+                                  deletingProductId === product._id
+                                }
+                                title={
+                                  product.status !== "available"
+                                    ? "Hanya produk tersedia yang dapat dihapus"
+                                    : undefined
+                                }
+                                onClick={() => void removeProduct(product)}
+                                className="inline-flex min-h-9 items-center gap-2 border border-red-600 px-3 text-[11px] font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <Trash2 size={13} />
+                                {deletingProductId === product._id ? "Menghapus..." : "Hapus"}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
