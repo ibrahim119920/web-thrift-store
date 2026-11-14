@@ -41,8 +41,8 @@ export interface Review {
   _id: string;
   rating: number;
   comment: string;
-  user: { name: string };
-  product: { _id: string; name: string; category: string };
+  user?: { name: string; avatar?: string };
+  product?: { _id: string; name: string; category: string; images?: string[] };
   createdAt: string;
 }
 
