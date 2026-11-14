@@ -89,6 +89,7 @@ export interface PaymentRecord {
     bank?: string;
     vaNumber?: string;
     qrString?: string;
+    qrUrl?: string;
     billKey?: string;
     billerCode?: string;
     paymentCode?: string;

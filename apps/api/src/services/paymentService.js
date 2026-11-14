@@ -18,7 +18,7 @@ const addressPayload = (address) => ({
 });
 
 // Susunan item_details harus berjumlah tepat sama dengan gross_amount.
-function buildSnapPayload({ order, user, address }) {
+const itemDetailsOf = (order) => {
   const items = order.items.map((item) => ({
     id: String(item.productId),
     price: item.price,
@@ -33,19 +33,26 @@ function buildSnapPayload({ order, user, address }) {
       name: `${order.shipping.courier.toUpperCase()} ${order.shipping.service.toUpperCase()}`.slice(0, 50),
     });
   }
+  return items;
+};
 
+const customerDetailsOf = (user, address) => {
   const [firstName, ...rest] = String(user.name || 'Pembeli').trim().split(/\s+/);
+  return {
+    first_name: firstName,
+    last_name: rest.join(' ') || undefined,
+    email: user.email,
+    phone: user.phone || address.phone,
+    billing_address: addressPayload(address),
+    shipping_address: addressPayload(address),
+  };
+};
+
+function buildSnapPayload({ order, user, address }) {
   const payload = {
     transaction_details: { order_id: order.orderNumber, gross_amount: order.total },
-    item_details: items,
-    customer_details: {
-      first_name: firstName,
-      last_name: rest.join(' ') || undefined,
-      email: user.email,
-      phone: user.phone || address.phone,
-      billing_address: addressPayload(address),
-      shipping_address: addressPayload(address),
-    },
+    item_details: itemDetailsOf(order),
+    customer_details: customerDetailsOf(user, address),
     expiry: { unit: 'minutes', duration: expiryMinutes() },
     credit_card: { secure: true },
   };
@@ -58,11 +65,19 @@ function buildSnapPayload({ order, user, address }) {
   return payload;
 }
 
-/**
- * Buat (atau pakai ulang) transaksi Snap untuk sebuah order milik pembeli.
- * Idempoten: selama masih ada pembayaran pending yang punya redirectUrl, token lama dipakai lagi.
- */
-async function createSnapForOrder({ orderId, user }) {
+// Charge QRIS Core API (sandbox) agar mendapat URL gambar QR untuk simulator.
+function buildCoreQrisPayload({ order, user, address }) {
+  return {
+    payment_type: 'qris',
+    transaction_details: { order_id: order.orderNumber, gross_amount: order.total },
+    item_details: itemDetailsOf(order),
+    customer_details: customerDetailsOf(user, address),
+    qris: { acquirer: 'gopay' },
+  };
+}
+
+// Order harus milik pembeli, masih menunggu pembayaran, dan belum lewat batas waktu.
+async function loadPayableOrder({ orderId, user }) {
   const order = await Order.findOne({ _id: orderId, userId: user._id });
   if (!order) throw new AppError(404, 'Order tidak ditemukan');
   if (order.status !== 'waiting_payment') throw new AppError(409, `Order berstatus "${order.status}", tidak dapat dibayar`);
@@ -70,6 +85,15 @@ async function createSnapForOrder({ orderId, user }) {
     await cancelOrder(order._id);
     throw new AppError(409, 'Batas waktu pembayaran order telah habis, order dibatalkan');
   }
+  return order;
+}
+
+/**
+ * Buat (atau pakai ulang) transaksi Snap untuk sebuah order milik pembeli.
+ * Idempoten: selama masih ada pembayaran pending yang punya redirectUrl, token lama dipakai lagi.
+ */
+async function createSnapForOrder({ orderId, user }) {
+  const order = await loadPayableOrder({ orderId, user });
 
   const reusable = await Payment.findOne({ orderId: order._id, provider: 'midtrans', status: 'pending', redirectUrl: { $ne: null } });
   if (reusable) return reusable;
@@ -95,6 +119,55 @@ async function createSnapForOrder({ orderId, user }) {
         snapToken: snap.token,
         redirectUrl: snap.redirect_url,
         transactionStatus: 'pending',
+        lastSyncedAt: new Date(),
+      },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+}
+
+/**
+ * QRIS lewat Core API — HANYA sandbox. Hasilnya berisi QR URL yang bisa dipindai
+ * oleh aplikasi simulator (tools/midtrans-qris-sim) atau ditempel ke simulator Midtrans.
+ */
+async function createCoreQrisForOrder({ orderId, user }) {
+  if (midtrans.isProduction()) throw new AppError(403, 'QRIS Core hanya tersedia di sandbox. Gunakan Snap untuk production.');
+  const order = await loadPayableOrder({ orderId, user });
+
+  // Pakai ulang QR yang masih pending agar memindai ulang tidak membuat transaksi baru.
+  const reusable = await Payment.findOne({ orderId: order._id, provider: 'midtrans', status: 'pending', 'paymentData.qrUrl': { $ne: null } });
+  if (reusable) return reusable;
+
+  const address = await ShippingAddress.findById(order.shippingAddressId);
+  if (!address) throw new AppError(404, 'Alamat pengiriman tidak ditemukan');
+
+  const charge = await midtrans.chargeQrisCore(buildCoreQrisPayload({ order, user, address }));
+  const actions = Array.isArray(charge.actions) ? charge.actions : [];
+  const qrUrl =
+    actions.find((action) => action.name === 'generate-qr-code-v2')?.url ||
+    actions.find((action) => action.name === 'generate-qr-code')?.url;
+  if (!qrUrl) throw new AppError(502, 'Midtrans tidak mengembalikan URL gambar QR');
+
+  await Payment.updateMany({ orderId: order._id, status: 'pending' }, { $set: { status: 'expired' } });
+
+  return Payment.findOneAndUpdate(
+    { orderId: order._id, provider: 'midtrans' },
+    {
+      $set: {
+        userId: user._id,
+        transactionId: charge.order_id || order.orderNumber,
+        amount: order.total,
+        paymentMethod: 'qris',
+        status: 'pending',
+        expiresAt: order.expiresAt,
+        snapToken: null,
+        redirectUrl: null,
+        transactionStatus: charge.transaction_status || 'pending',
+        paymentData: {
+          qrUrl,
+          ...(charge.qr_string && { qrString: charge.qr_string }),
+          ...(charge.acquirer && { acquirer: charge.acquirer }),
+        },
         lastSyncedAt: new Date(),
       },
     },
@@ -163,4 +236,4 @@ async function syncPayment(payment) {
   return (await Payment.findById(payment._id)) || payment;
 }
 
-module.exports = { createSnapForOrder, handleMidtransNotification, syncPayment };
+module.exports = { createSnapForOrder, createCoreQrisForOrder, handleMidtransNotification, syncPayment };

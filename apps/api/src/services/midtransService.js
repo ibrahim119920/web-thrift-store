@@ -37,6 +37,14 @@ function createSnapTransaction(payload) {
   return request(`${snapBase()}/snap/v1/transactions`, { method: 'POST', body: JSON.stringify(payload) });
 }
 
+// Charge QRIS lewat Core API (khusus sandbox). Dipakai untuk mendapatkan URL gambar QR
+// yang bisa di-scan/di-paste ke simulator Midtrans.
+function chargeQrisCore(payload) {
+  if (!isConfigured()) throw new AppError(503, 'Midtrans belum dikonfigurasi. Isi MIDTRANS_SERVER_KEY di environment backend.');
+  if (isProduction()) throw new AppError(403, 'QRIS Core hanya tersedia di sandbox.');
+  return request(`${apiBase()}/v2/charge`, { method: 'POST', body: JSON.stringify(payload) });
+}
+
 // Status terkini sebuah transaksi (dipakai untuk sinkronisasi saat webhook belum/tidak sampai).
 function getTransactionStatus(orderId) {
   if (!isConfigured()) throw new AppError(503, 'Midtrans belum dikonfigurasi. Isi MIDTRANS_SERVER_KEY di environment backend.');
@@ -117,6 +125,7 @@ module.exports = {
   isConfigured,
   isProduction,
   createSnapTransaction,
+  chargeQrisCore,
   getTransactionStatus,
   verifySignature,
   mapStatus,

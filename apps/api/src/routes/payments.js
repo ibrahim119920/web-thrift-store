@@ -5,7 +5,7 @@ const { Order, Payment } = require('../models');
 const { AppError, asyncHandler, ok } = require('../utils');
 const { authenticate } = require('../middlewares');
 const { applyPaymentResult, cancelOrder } = require('../services/orderService');
-const { createSnapForOrder, handleMidtransNotification, syncPayment } = require('../services/paymentService');
+const { createSnapForOrder, createCoreQrisForOrder, handleMidtransNotification, syncPayment } = require('../services/paymentService');
 
 // ---------------------------------------------------------------------------
 // Pembayaran asli: Midtrans Snap (lihat services/midtransService.js)
@@ -18,6 +18,15 @@ orderPayments.post(
   asyncHandler(async (req, res) => {
     const payment = await createSnapForOrder({ orderId: req.params.id, user: req.user });
     ok(res, payment, 'Transaksi Midtrans dibuat. Lanjutkan pembayaran.', 201);
+  })
+);
+
+// QRIS Core API (sandbox): untuk diuji dengan simulator Midtrans / tools/midtrans-qris-sim.
+orderPayments.post(
+  '/qris-core',
+  asyncHandler(async (req, res) => {
+    const payment = await createCoreQrisForOrder({ orderId: req.params.id, user: req.user });
+    ok(res, payment, 'QRIS sandbox dibuat. Pindai QR dengan simulator untuk membayar.', 201);
   })
 );
 

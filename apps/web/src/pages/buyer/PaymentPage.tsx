@@ -1,3 +1,4 @@
+import QRCode from "qrcode";
 import { Check, Clock3, Copy, PackageCheck, QrCode } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -25,6 +26,7 @@ export function PaymentPage() {
   const [error, setError] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [snapLoading, setSnapLoading] = useState(false);
+  const [qrisLoading, setQrisLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -116,6 +118,24 @@ export function PaymentPage() {
       );
     } finally {
       setSnapLoading(false);
+    }
+  };
+
+  const startQrisCore = async () => {
+    setQrisLoading(true);
+    try {
+      const response = await ordersService.createQrisCore(id);
+      const next = response.data;
+      if (!next) throw new Error("QRIS sandbox tidak tersedia.");
+      setPayment(next);
+      showToast("QRIS sandbox dibuat. Pindai QR dengan simulator.", "success");
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "QRIS sandbox belum dapat dibuat.",
+        "error",
+      );
+    } finally {
+      setQrisLoading(false);
     }
   };
 
@@ -233,9 +253,13 @@ export function PaymentPage() {
             <MidtransPayment
               order={order}
               loading={snapLoading}
+              qrisLoading={qrisLoading}
               onPay={() => void startMidtrans()}
+              onQrisCore={() => void startQrisCore()}
             />
           )
+        ) : payment.method === "qris" && payment.paymentData.qrUrl ? (
+          <QrisSandboxPayment payment={payment} order={order} />
         ) : payment.method === "qris" ? (
           <QrisPayment payment={payment} order={order} />
         ) : payment.method === "bank_transfer" ? (
@@ -268,11 +292,15 @@ export function PaymentPage() {
 function MidtransPayment({
   order,
   loading,
+  qrisLoading,
   onPay,
+  onQrisCore,
 }: {
   order: Order;
   loading: boolean;
+  qrisLoading: boolean;
   onPay: () => void;
+  onQrisCore: () => void;
 }) {
   return (
     <section>
@@ -294,6 +322,117 @@ function MidtransPayment({
           </Button>
         </div>
         <p className="mt-5 text-xs text-muted">Pesanan {order.orderNumber}</p>
+      </div>
+
+      <div className="mt-5 border border-dashed border-[#c9c9c2] bg-canvas p-6">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Khusus sandbox</p>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          Buat QRIS lewat Core API, lalu pindai QR-nya dengan aplikasi simulator
+          (<span className="font-mono text-xs">tools/midtrans-qris-sim</span>) atau tempel URL-nya ke
+          simulator Midtrans.
+        </p>
+        <Button
+          onClick={onQrisCore}
+          disabled={qrisLoading}
+          className="mt-4 bg-white text-ink ring-1 ring-ink"
+        >
+          {qrisLoading ? "Menyiapkan QRIS..." : "Tampilkan QRIS sandbox"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function QrisSandboxPayment({ payment, order }: { payment: PaymentRecord; order: Order }) {
+  const { showToast } = useToast();
+  const qrUrl = payment.paymentData.qrUrl || "";
+  const [urlQr, setUrlQr] = useState("");
+
+  useEffect(() => {
+    if (!qrUrl) return;
+    let active = true;
+    QRCode.toDataURL(qrUrl, { margin: 1, width: 260, errorCorrectionLevel: "M" })
+      .then((dataUrl) => {
+        if (active) setUrlQr(dataUrl);
+      })
+      .catch(() => {
+        if (active) setUrlQr("");
+      });
+    return () => {
+      active = false;
+    };
+  }, [qrUrl]);
+
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(qrUrl);
+      showToast("URL QR berhasil disalin.", "success");
+    } catch {
+      showToast("URL QR belum dapat disalin.", "error");
+    }
+  };
+
+  return (
+    <section className="border border-[#4b4b4b] bg-white p-6 tablet:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e9e5] pb-5">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center border border-[#deded9]">
+            <QrCode size={19} />
+          </span>
+          <strong>QRIS sandbox</strong>
+        </div>
+        <span className="rounded-full bg-[#fff1bd] px-3 py-1 text-[10px] font-bold uppercase">
+          Sandbox only
+        </span>
+      </div>
+
+      <div className="mt-7 grid gap-8 tablet:grid-cols-2">
+        <div className="text-center">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted">QR pembayaran</p>
+          {qrUrl ? (
+            <img
+              src={qrUrl}
+              alt="QRIS Midtrans sandbox"
+              className="mx-auto mt-3 w-full max-w-[260px] border-4 border-white shadow-[0_0_0_1px_#deded9]"
+            />
+          ) : (
+            <p className="mt-6 text-sm text-muted">QR tidak tersedia.</p>
+          )}
+          <p className="mx-auto mt-3 max-w-[260px] text-xs leading-5 text-muted">
+            Gambar QR dari Midtrans. Bisa langsung ditempel ke simulator Midtrans.
+          </p>
+        </div>
+
+        <div className="text-center">
+          <p className="text-xs font-bold uppercase tracking-wider text-pink">QR untuk simulator</p>
+          {urlQr ? (
+            <img
+              src={urlQr}
+              alt="QR berisi URL transaksi untuk aplikasi simulator"
+              className="mx-auto mt-3 w-full max-w-[260px] border-4 border-white shadow-[0_0_0_1px_#deded9]"
+            />
+          ) : (
+            <p className="mt-6 text-sm text-muted">Menyiapkan QR…</p>
+          )}
+          <p className="mx-auto mt-3 max-w-[260px] text-xs leading-5 text-muted">
+            QR ini berisi URL transaksi. Pindai dengan aplikasi simulator, lalu bayar.
+          </p>
+          <button
+            type="button"
+            onClick={() => void copyUrl()}
+            className="mt-3 inline-flex items-center gap-2 rounded-full border border-ink px-4 py-2 text-xs font-bold"
+          >
+            <Copy size={14} /> Salin URL
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-t border-[#e8e9e5] pt-6">
+        <div>
+          <p className="text-xs text-muted">Total yang harus dibayar</p>
+          <p className="mt-1 text-2xl font-black">{formatRupiah(payment.amount || order.total)}</p>
+        </div>
+        <p className="text-xs text-muted">Status: {payment.transactionStatus || payment.status}</p>
       </div>
     </section>
   );

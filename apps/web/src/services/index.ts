@@ -242,6 +242,12 @@ export const ordersService = {
       (response) => ({ ...response, data: normalizePayment(response.data) }),
     );
   },
+  createQrisCore: (id: string) => {
+    if (USE_MOCK) return mockResponse<PaymentRecord | null>(null, "Mode mock tidak memakai Midtrans.");
+    return apiRequest<PaymentRecord>(`/orders/${id}/payments/qris-core`, { method: "POST" }).then(
+      (response) => ({ ...response, data: normalizePayment(response.data) }),
+    );
+  },
   payQris: (id: string) => {
     if (USE_MOCK) {
       const records = readStorage<PaymentRecord[]>(PAYMENTS_KEY, []);
