@@ -5,6 +5,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { LoadMore } from "../../components/ui/LoadMore";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useToast } from "../../components/ui/Toast";
 import { formatRupiah } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel, orderStatusOptions } from "../../lib/order";
 import { ordersService } from "../../services";
@@ -24,6 +25,24 @@ export function OrdersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  const cancelOrder = async (orderId: string) => {
+    if (!window.confirm("Batalkan pesanan ini?")) return;
+    setCancellingId(orderId);
+    try {
+      const response = await ordersService.cancel(orderId);
+      setOrders((current) =>
+        current.map((order) => (order._id === orderId ? response.data : order)),
+      );
+      showToast("Pesanan dibatalkan.", "success");
+    } catch {
+      showToast("Pesanan belum dapat dibatalkan.", "error");
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const fetchPage = async (nextPage: number) => {
     const response = await ordersService.list({
@@ -176,12 +195,22 @@ export function OrdersPage() {
                   <p className="text-xs text-muted">Total belanja</p>
                   <p className="mt-1 text-lg font-black">{formatRupiah(order.total)}</p>
                   {order.status === "waiting_payment" && (
-                    <Link
-                      to={`/orders/${order._id}/pay`}
-                      className="mt-4 inline-flex items-center gap-2 text-xs font-bold"
-                    >
-                      Lanjut bayar <ArrowRight size={14} />
-                    </Link>
+                    <div className="mt-4 flex flex-col gap-3">
+                      <Link
+                        to={`/orders/${order._id}/pay`}
+                        className="inline-flex items-center gap-2 text-xs font-bold"
+                      >
+                        Lanjut bayar <ArrowRight size={14} />
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={cancellingId === order._id}
+                        onClick={() => void cancelOrder(order._id)}
+                        className="inline-flex w-fit items-center gap-2 text-xs font-bold text-red-600 disabled:opacity-50"
+                      >
+                        {cancellingId === order._id ? "Membatalkan..." : "Batalkan pesanan"}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
