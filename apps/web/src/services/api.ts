@@ -44,8 +44,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (!isJson || !body || typeof body !== "object" || !("data" in body)) {
     throw new ApiError(
       body?.message ||
-        `Respons API tidak valid (${response.status} ${contentType || "tanpa content-type"}). ` +
-          `Pastikan VITE_API_BASE_URL mengarah ke backend (contoh https://<backend>/api), bukan domain frontend.`,
+        `Respons API tidak valid (${response.status} ${contentType || "tanpa content-type"}) dari ${API_BASE_URL}. ` +
+          `Pastikan VITE_API_BASE_URL mengarah ke backend (contoh https://<backend>.up.railway.app/api), bukan domain frontend.`,
       502,
     );
   }
