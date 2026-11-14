@@ -34,6 +34,7 @@ export interface Product {
   images: string[];
   weight: number;
   status: ProductStatus;
+  reviewSummary?: { averageRating: number | null; totalReviews: number };
   createdAt: string;
 }
 
@@ -41,7 +42,7 @@ export interface Review {
   _id: string;
   rating: number;
   comment: string;
-  user?: { name: string; avatar?: string };
+  user?: { _id?: string; name: string; avatar?: string };
   product?: { _id: string; name: string; category: string; images?: string[] };
   createdAt: string;
 }

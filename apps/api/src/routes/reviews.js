@@ -36,6 +36,7 @@ router.post(
     const order = await Order.findOne({ _id: req.body.orderId, userId: req.user._id, 'items.productId': product._id });
     if (!order) throw new AppError(403, 'Anda hanya dapat mengulas produk dari order milik Anda sendiri');
     if (order.status !== 'completed') throw new AppError(409, 'Ulasan hanya dapat dibuat setelah order selesai (completed)');
+    if (await Review.exists({ userId: req.user._id, productId: product._id })) throw new AppError(409, 'Anda sudah mengulas produk ini');
     const review = await Review.create({
       userId: req.user._id,
       productId: product._id,

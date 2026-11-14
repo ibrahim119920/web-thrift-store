@@ -1,18 +1,20 @@
-import { Heart, PackageCheck, ShieldCheck, Truck, WalletCards } from "lucide-react";
+import { Heart, PackageCheck, ShieldCheck, Star, Truck, WalletCards } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ProductCard } from "../../components/product/ProductCard";
 import { Button } from "../../components/ui/Button";
 import { ErrorState } from "../../components/ui/ErrorState";
+import { RatingStars } from "../../components/ui/RatingStars";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Tabs } from "../../components/ui/Tabs";
 import { useToast } from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { formatRupiah, formatSize } from "../../lib/format";
-import { favoritesService } from "../../services";
-import { getProduct, getProducts } from "../../services/products";
-import type { Product } from "../../types";
+import { favoritesService, ordersService } from "../../services";
+import { getProduct, getProducts, getProductReviews } from "../../services/products";
+import { createReview } from "../../services/reviews";
+import type { Order, Product, Review } from "../../types";
 
 const tabs = [
   { label: "Deskripsi", value: "description" },
@@ -31,6 +33,11 @@ export function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState("description");
   const [favorite, setFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
+  const [draftRating, setDraftRating] = useState(5);
+  const [draftComment, setDraftComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -42,6 +49,8 @@ export function ProductDetailPage() {
       if (!productResponse.data) throw new Error("Produk tidak ditemukan");
       const currentProduct = productResponse.data;
       setProduct(currentProduct);
+      const reviewResponse = await getProductReviews(id).catch(() => ({ data: [] as Review[] }));
+      setReviews(reviewResponse.data);
       const [relatedResponse, availableResponse] = await Promise.all([
         getProducts({ category: currentProduct.category, limit: 6 }),
         getProducts({ limit: 20 }),
@@ -61,6 +70,13 @@ export function ProductDetailPage() {
       if (user) {
         const favoriteResponse = await favoritesService.list();
         setFavorite(favoriteResponse.data.some((item) => item._id === id));
+        const orderResponse = await ordersService
+          .list({ status: "completed", limit: 50 })
+          .catch(() => ({ data: [] as Order[] }));
+        setCompletedOrderId(
+          orderResponse.data.find((order) => order.items.some((item) => item.productId === id))
+            ?._id ?? null,
+        );
       }
     } catch {
       setError(true);
@@ -102,6 +118,35 @@ export function ProductDetailPage() {
       showToast("Favorit belum dapat diperbarui.", "error");
     } finally {
       setFavoriteLoading(false);
+    }
+  };
+
+  const submitReview = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!product || !completedOrderId) return;
+    setSubmittingReview(true);
+    try {
+      await createReview(product._id, {
+        orderId: completedOrderId,
+        rating: draftRating,
+        comment: draftComment.trim(),
+      });
+      const [refreshedReviews, refreshedProduct] = await Promise.all([
+        getProductReviews(product._id),
+        getProduct(product._id),
+      ]);
+      setReviews(refreshedReviews.data);
+      setProduct(refreshedProduct.data ?? product);
+      setCompletedOrderId(null);
+      setDraftComment("");
+      showToast("Terima kasih, ulasan Anda sudah dikirim.", "success");
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "Ulasan belum dapat dikirim.",
+        "error",
+      );
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -235,6 +280,86 @@ export function ProductDetailPage() {
             text="QRIS dan transfer bank."
           />
         </div>
+      </section>
+
+      <section className="container-main py-16 tablet:py-20">
+        <h2 className="display-title text-3xl tablet:text-4xl">Ulasan</h2>
+        {product.reviewSummary && product.reviewSummary.totalReviews > 0 ? (
+          <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted">
+            <RatingStars value={Math.round(product.reviewSummary.averageRating ?? 0)} size={14} />
+            <span>
+              {product.reviewSummary.averageRating} dari 5 · {product.reviewSummary.totalReviews}{" "}
+              ulasan
+            </span>
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-muted">Belum ada ulasan untuk barang ini.</p>
+        )}
+
+        {completedOrderId && !reviews.some((review) => review.user?._id === user?._id) && (
+          <form
+            onSubmit={submitReview}
+            className="mt-8 max-w-2xl space-y-5 border-2 border-ink bg-canvas p-6"
+          >
+            <div>
+              <h3 className="font-extrabold">Tulis ulasan</h3>
+              <p className="mt-1 text-xs text-muted">Barang dari pesanan Anda yang sudah selesai.</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted">Rating</p>
+              <div className="mt-2 flex gap-1">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setDraftRating(value)}
+                    aria-label={`${value} bintang`}
+                    aria-pressed={draftRating === value}
+                    className="p-1"
+                  >
+                    <Star
+                      size={26}
+                      className={draftRating >= value ? "fill-pink text-pink" : "text-ink"}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="block">
+              <span className="text-xs font-semibold text-muted">Komentar</span>
+              <textarea
+                value={draftComment}
+                onChange={(event) => setDraftComment(event.target.value)}
+                maxLength={1000}
+                rows={4}
+                placeholder="Ceritakan kondisi barang setelah diterima."
+                className="mt-2 w-full border border-ink bg-white p-3 text-sm outline-none"
+              />
+            </label>
+            <Button type="submit" disabled={submittingReview}>
+              {submittingReview ? "Mengirim..." : "Kirim ulasan"}
+            </Button>
+          </form>
+        )}
+
+        {reviews.length > 0 && (
+          <div className="mt-10 grid gap-4 tablet:grid-cols-2">
+            {reviews.map((review) => (
+              <article key={review._id} className="border border-[#e8e9e5] bg-white p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <RatingStars value={review.rating} size={14} />
+                  <span className="text-[11px] text-muted">
+                    {new Date(review.createdAt).toLocaleDateString("id-ID")}
+                  </span>
+                </div>
+                <p className="mt-4 text-sm leading-relaxed">
+                  {review.comment ? `“${review.comment}”` : <span className="text-muted">Tanpa komentar</span>}
+                </p>
+                <p className="mt-4 text-xs font-bold">{review.user?.name ?? "Pembeli"}</p>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       {related.length > 0 && (
