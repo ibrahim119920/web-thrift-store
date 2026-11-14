@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>QRIS Simulator — Midtrans Sandbox</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <p class="eyebrow">Alat bantu testing</p>
+        <h1>QRIS Simulator <span>Midtrans Sandbox</span></h1>
+      </div>
+      <span class="badge badge-sandbox">Sandbox only</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card intro">
+      <h2>Dua jenis QR yang berbeda</h2>
+      <ul class="bullet-list">
+        <li>
+          <strong>QR kecil berisi URL</strong> (disediakan halaman pembayaran storefront saat mode sandbox).
+          Isinya <code>https://api.sandbox.midtrans.com/v2/qris/&lt;uuid&gt;/qr-code</code>.
+          Ini yang membuat alur <em>scan → bayar</em> berjalan penuh.
+        </li>
+        <li>
+          <strong>Gambar QRIS besar</strong> berisi payload EMVCo (<code>000201…</code>).
+          Dari QR ini hanya bisa dibaca merchant, kota, dan nominal — <strong>tidak ada URL/UUID transaksi</strong>
+          di dalamnya, jadi pembayaran tetap membutuhkan URL/UUID dari respons QRIS Core API.
+        </li>
+        <li>
+          Simulator resmi Midtrans hanya menerima <strong>QR Code Image URL</strong>, bukan payload QRIS.
+          Itu sebabnya aplikasi ini meminta URL atau UUID.
+        </li>
+      </ul>
+    </section>
+
+    <section class="card" aria-labelledby="sourceTitle">
+      <h2 id="sourceTitle">1. Sumber QR</h2>
+
+      <div class="field">
+        <label for="qrInput">URL <code>qr-code</code> atau UUID transaksi</label>
+        <input
+          id="qrInput"
+          name="qrInput"
+          type="text"
+          inputmode="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="https://api.sandbox.midtrans.com/v2/qris/xxxx/qr-code"
+          aria-describedby="qrHelp"
+        >
+        <p id="qrHelp" class="hint">
+          Contoh UUID saja: <code>11111111-1111-4111-8111-111111111111</code>.
+          Hanya domain <code>api.sandbox.midtrans.com</code> yang diterima.
+        </p>
+      </div>
+
+      <div class="actions">
+        <button id="scanButton" class="btn btn-primary" type="button">Scan QR</button>
+        <button id="cameraButton" class="btn" type="button">Mulai kamera</button>
+        <button id="stopCameraButton" class="btn" type="button" hidden>Hentikan kamera</button>
+        <label class="btn btn-file" for="qrFile">
+          Unggah gambar QR
+          <input id="qrFile" name="qrFile" type="file" accept="image/*">
+        </label>
+      </div>
+
+      <p id="cameraSupport" class="hint"></p>
+
+      <div id="cameraWrap" class="camera" hidden>
+        <video id="cameraVideo" playsinline muted aria-label="Pratinjau kamera untuk memindai QR"></video>
+        <p class="hint">Arahkan kamera ke QR kecil berisi URL <code>qr-code</code>. Kamera berhenti otomatis setelah QR terbaca.</p>
+      </div>
+
+      <div id="previewWrap" class="preview" hidden>
+        <img id="previewImage" alt="Pratinjau gambar QR yang diunggah">
+      </div>
+
+      <p id="classifyMessage" class="note" role="status" aria-live="polite" hidden></p>
+      <p id="globalStatus" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card" id="scanCard" aria-labelledby="scanTitle" hidden>
+      <h2 id="scanTitle">2. Hasil scan simulator</h2>
+      <dl class="kv">
+        <div>
+          <dt>Merchant</dt>
+          <dd id="resultMerchant">—</dd>
+        </div>
+        <div>
+          <dt>Nominal</dt>
+          <dd id="resultAmount">—</dd>
+        </div>
+        <div>
+          <dt>Acquirer</dt>
+          <dd id="resultAcquirer">—</dd>
+        </div>
+        <div>
+          <dt>Status transaksi</dt>
+          <dd id="resultStatus">—</dd>
+        </div>
+        <div>
+          <dt>UUID</dt>
+          <dd id="resultUuid" class="mono">—</dd>
+        </div>
+      </dl>
+
+      <details class="details">
+        <summary>Ringkasan teks dari simulator</summary>
+        <pre id="resultSummary"></pre>
+      </details>
+    </section>
+
+    <section class="card" id="payCard" aria-labelledby="payTitle" hidden>
+      <h2 id="payTitle">3. Bayar</h2>
+
+      <div class="field" id="amountFieldWrap" hidden>
+        <label for="amountInput">Nominal yang dikirim ke simulator</label>
+        <input
+          id="amountInput"
+          name="amountInput"
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
+          placeholder="Contoh: 25000"
+          aria-describedby="amountHelp"
+        >
+        <p id="amountHelp" class="hint">
+          Simulator menyediakan field nominal kosong. Isi nominal sesuai transaksi (tanpa "Rp", boleh tanpa titik).
+        </p>
+      </div>
+
+      <p id="amountReadonly" class="note" hidden></p>
+
+      <div class="field">
+        <label for="issuerSelect">Issuer</label>
+        <select id="issuerSelect" name="issuerSelect" aria-describedby="issuerHelp">
+          <option value="gopay" selected>gopay (default)</option>
+          <option value="dana">dana</option>
+          <option value="ovo">ovo</option>
+          <option value="linkaja">linkaja</option>
+          <option value="airpay shopee">airpay shopee</option>
+        </select>
+        <p id="issuerHelp" class="hint">Nilai ini dikirim sebagai field <code>issuer</code> pada langkah kedua simulator.</p>
+      </div>
+
+      <div class="actions">
+        <button id="payButton" class="btn btn-primary" type="button">Bayar</button>
+        <button id="rescanButton" class="btn" type="button">Scan ulang</button>
+      </div>
+    </section>
+
+    <section class="card" id="resultCard" aria-labelledby="paymentResultTitle" hidden>
+      <h2 id="paymentResultTitle">4. Hasil pembayaran</h2>
+      <p id="paymentBadge" class="badge" role="status" aria-live="polite">—</p>
+      <p id="paymentOrder" class="hint mono" hidden></p>
+      <p id="paymentMessage" class="payment-message"></p>
+      <details class="details">
+        <summary>Teks respons simulator</summary>
+        <pre id="paymentSummary"></pre>
+      </details>
+    </section>
+
+    <section class="card" aria-labelledby="historyTitle">
+      <div class="card-head">
+        <h2 id="historyTitle">Riwayat (memori halaman)</h2>
+        <button id="resetHistoryButton" class="btn btn-small" type="button">Reset</button>
+      </div>
+      <p id="historyEmpty" class="hint">Belum ada percobaan pembayaran.</p>
+      <div class="table-wrap">
+        <table id="historyTable" hidden>
+          <caption class="sr-only">Riwayat percobaan pembayaran QRIS di sesi ini</caption>
+          <thead>
+            <tr>
+              <th scope="col">Waktu</th>
+              <th scope="col">UUID</th>
+              <th scope="col">Nominal</th>
+              <th scope="col">Issuer</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+      <p class="hint">Riwayat hanya tersimpan di memori halaman dan hilang saat halaman dimuat ulang.</p>
+    </section>
+
+    <section class="card muted">
+      <h2>Batasan penting</h2>
+      <ul class="bullet-list">
+        <li>Hanya untuk <strong>sandbox</strong>. Server menolak semua domain selain <code>*.sandbox.midtrans.com</code>.</li>
+        <li>Tidak menerima, meminta, atau menyimpan server key / client key. Simulator Midtrans sendiri terbuka tanpa autentikasi.</li>
+        <li>Integrasi memakai <em>scraping</em> HTML simulator. Bila Midtrans mengubah halaman, parsing bisa rusak.</li>
+        <li>Kamera memerlukan <code>localhost</code> atau HTTPS serta browser dengan <code>BarcodeDetector</code> (Chrome/Edge). Firefox/Safari: gunakan unggah gambar atau tempel URL.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Alat testing lokal. Bukan bagian dari aplikasi storefront dan tidak terhubung ke database.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
