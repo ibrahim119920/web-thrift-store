@@ -112,7 +112,7 @@ export const getProductReviews = (id: string) =>
         data: response.data.map(normalizeReview),
       }));
 export const getAdminProducts = () =>
-  USE_MOCK ? mockResponse(readMockProducts()) : apiRequest<Product[]>("/admin/products?limit=100");
+  USE_MOCK ? mockResponse(readMockProducts()) : apiRequest<Product[]>("/products?status=all&limit=50");
 
 export const createProduct = (body: Partial<Product>) => {
   if (USE_MOCK) {

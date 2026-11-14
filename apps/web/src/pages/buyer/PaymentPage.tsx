@@ -448,45 +448,28 @@ function QrisSandboxPayment({ payment, order }: { payment: PaymentRecord; order:
         </span>
       </div>
 
-      <div className="mt-7 grid gap-8 tablet:grid-cols-2">
-        <div className="text-center">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted">QR pembayaran</p>
-          {qrUrl ? (
-            <img
-              src={qrUrl}
-              alt="QRIS Midtrans sandbox"
-              className="mx-auto mt-3 w-full max-w-[260px] border-4 border-white shadow-[0_0_0_1px_#deded9]"
-            />
-          ) : (
-            <p className="mt-6 text-sm text-muted">QR tidak tersedia.</p>
-          )}
-          <p className="mx-auto mt-3 max-w-[260px] text-xs leading-5 text-muted">
-            Gambar QR dari Midtrans. Bisa langsung ditempel ke simulator Midtrans.
-          </p>
-        </div>
-
-        <div className="text-center">
-          <p className="text-xs font-bold uppercase tracking-wider text-pink">QR untuk simulator</p>
-          {urlQr ? (
-            <img
-              src={urlQr}
-              alt="QR berisi URL transaksi untuk aplikasi simulator"
-              className="mx-auto mt-3 w-full max-w-[260px] border-4 border-white shadow-[0_0_0_1px_#deded9]"
-            />
-          ) : (
-            <p className="mt-6 text-sm text-muted">Menyiapkan QR…</p>
-          )}
-          <p className="mx-auto mt-3 max-w-[260px] text-xs leading-5 text-muted">
-            QR ini berisi URL transaksi. Pindai dengan aplikasi simulator, lalu bayar.
-          </p>
-          <button
-            type="button"
-            onClick={() => void copyUrl()}
-            className="mt-3 inline-flex items-center gap-2 rounded-full border border-ink px-4 py-2 text-xs font-bold"
-          >
-            <Copy size={14} /> Salin URL
-          </button>
-        </div>
+      <div className="mt-7 text-center">
+        <p className="text-xs font-bold uppercase tracking-wider text-pink">QR pembayaran</p>
+        {urlQr ? (
+          <img
+            src={urlQr}
+            alt="QR pembayaran untuk dipindai aplikasi pembayaran"
+            className="mx-auto mt-3 w-full max-w-[280px] border-4 border-white shadow-[0_0_0_1px_#deded9]"
+          />
+        ) : (
+          <p className="mt-6 text-sm text-muted">Menyiapkan QR…</p>
+        )}
+        <p className="mx-auto mt-3 max-w-[320px] text-xs leading-5 text-muted">
+          Buka aplikasi pembayaran, pindai QR ini, lalu konfirmasi pembayaran. Status pesanan
+          diperbarui otomatis setelah pembayaran diterima.
+        </p>
+        <button
+          type="button"
+          onClick={() => void copyUrl()}
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-ink px-4 py-2 text-xs font-bold"
+        >
+          <Copy size={14} /> Salin kode pembayaran
+        </button>
       </div>
 
       <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-t border-[#e8e9e5] pt-6">

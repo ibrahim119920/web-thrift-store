@@ -21,7 +21,13 @@ import { formatRupiah } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel } from "../../lib/order";
 import { ordersService } from "../../services";
 import { createProduct, getAdminProducts, updateProduct } from "../../services/products";
-import type { Order, Product, ProductStatus } from "../../types";
+import type { Order, OrderStatus, Product } from "../../types";
+
+const nextOrderAction: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
+  paid: { status: "processing", label: "Mulai proses" },
+  processing: { status: "shipped", label: "Kirim pesanan" },
+  shipped: { status: "completed", label: "Tandai selesai" },
+};
 
 type ProductDraft = {
   name: string;
@@ -32,13 +38,12 @@ type ProductDraft = {
   chest: string;
   length: string;
   weight: string;
-  status: ProductStatus;
   description: string;
   grade: "A" | "B" | "C";
   conditionDescription: string;
   minusTags: string;
   sellerNote: string;
-  image: string;
+  images: string;
 };
 
 const emptyDraft: ProductDraft = {
@@ -50,13 +55,12 @@ const emptyDraft: ProductDraft = {
   chest: "",
   length: "",
   weight: "",
-  status: "available",
   description: "",
   grade: "A",
   conditionDescription: "",
   minusTags: "",
   sellerNote: "",
-  image: "/assets/5656c.png",
+  images: "",
 };
 
 export function AdminDashboardPage() {
@@ -64,6 +68,9 @@ export function AdminDashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | "new" | null>(null);
+  const [trackingDraft, setTrackingDraft] = useState<Record<string, string>>({});
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -104,6 +111,32 @@ export function AdminDashboardPage() {
         : [product, ...current];
     });
     setEditingProduct(null);
+  };
+
+  const changeOrderStatus = async (order: Order, status: OrderStatus) => {
+    const trackingNumber = (trackingDraft[order._id] ?? "").trim();
+    if (status === "shipped" && trackingNumber.length < 3) {
+      setOrderError(`Isi nomor resi untuk pesanan ${order.orderNumber} (minimal 3 karakter).`);
+      return;
+    }
+    setOrderError("");
+    setUpdatingOrderId(order._id);
+    try {
+      const response = await ordersService.updateStatus(order._id, {
+        status,
+        ...(status === "shipped" ? { trackingNumber } : {}),
+      });
+      setOrders((current) =>
+        current.map((item) =>
+          item._id === order._id ? { ...item, ...response.data, userId: item.userId } : item,
+        ),
+      );
+      setTrackingDraft((current) => ({ ...current, [order._id]: "" }));
+    } catch (error) {
+      setOrderError(error instanceof Error ? error.message : "Status pesanan belum dapat diubah.");
+    } finally {
+      setUpdatingOrderId(null);
+    }
   };
 
   return (
@@ -266,37 +299,113 @@ export function AdminDashboardPage() {
 
             <section className="mt-7 overflow-hidden border border-[#deded9] bg-white">
               <div className="border-b border-[#e8e8e3] px-5 py-4">
-                <h2 className="font-extrabold">Aktivitas pesanan terbaru</h2>
-                <p className="mt-1 text-xs text-muted">Ringkasan aktivitas toko terbaru.</p>
+                <h2 className="font-extrabold">Kelola pesanan</h2>
+                <p className="mt-1 text-xs text-muted">
+                  Alur status: dibayar → diproses → dikirim (wajib nomor resi) → selesai.
+                </p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px] text-left text-xs">
-                  <thead className="bg-canvas text-[10px] uppercase tracking-wider text-muted">
-                    <tr>
-                      <th className="px-5 py-3">Pesanan</th>
-                      <th className="px-5 py-3">Barang</th>
-                      <th className="px-5 py-3">Total</th>
-                      <th className="px-5 py-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.slice(0, 5).map((order) => (
-                      <tr key={order._id} className="border-t border-[#ecece7]">
-                        <td className="px-5 py-4 font-bold">{order.orderNumber}</td>
-                        <td className="px-5 py-4">{order.items.length} item</td>
-                        <td className="px-5 py-4 font-semibold">{formatRupiah(order.total)}</td>
-                        <td className="px-5 py-4">
-                          <span
-                            className={`rounded-full px-3 py-2 text-[10px] font-bold ${orderStatusClass(order.status)}`}
-                          >
-                            {orderStatusLabel(order.status)}
-                          </span>
-                        </td>
+              {orderError && (
+                <p className="border-b border-[#f0c9c9] bg-[#fbeaea] px-5 py-3 text-xs font-semibold text-[#7d2626]">
+                  {orderError}
+                </p>
+              )}
+              {loading ? (
+                <div className="p-5">
+                  <Skeleton className="h-48 w-full" />
+                </div>
+              ) : orders.length === 0 ? (
+                <p className="px-5 py-8 text-center text-xs text-muted">Belum ada pesanan.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[960px] text-left text-xs">
+                    <thead className="bg-canvas text-[10px] uppercase tracking-wider text-muted">
+                      <tr>
+                        <th className="px-5 py-3">Pesanan</th>
+                        <th className="px-5 py-3">Pembeli</th>
+                        <th className="px-5 py-3">Barang</th>
+                        <th className="px-5 py-3">Total</th>
+                        <th className="px-5 py-3">Status</th>
+                        <th className="px-5 py-3">Aksi</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {orders.map((order) => {
+                        const action = nextOrderAction[order.status];
+                        const buyer =
+                          typeof order.userId === "object" && order.userId !== null ? order.userId : null;
+                        const busy = updatingOrderId === order._id;
+                        return (
+                          <tr key={order._id} className="border-t border-[#ecece7] align-top">
+                            <td className="px-5 py-4 font-bold">{order.orderNumber}</td>
+                            <td className="px-5 py-4">
+                              <p className="font-semibold">{buyer?.name ?? "-"}</p>
+                              <p className="mt-1 text-[10px] text-muted">{buyer?.email ?? ""}</p>
+                              {buyer?.phone && <p className="text-[10px] text-muted">{buyer.phone}</p>}
+                            </td>
+                            <td className="px-5 py-4">{order.items.length} item</td>
+                            <td className="px-5 py-4 font-semibold">{formatRupiah(order.total)}</td>
+                            <td className="px-5 py-4">
+                              <span
+                                className={`rounded-full px-3 py-2 text-[10px] font-bold ${orderStatusClass(order.status)}`}
+                              >
+                                {orderStatusLabel(order.status)}
+                              </span>
+                              {order.shipping.trackingNumber && (
+                                <p className="mt-2 text-[10px] text-muted">
+                                  Resi: {order.shipping.trackingNumber}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-5 py-4">
+                              {order.status === "processing" && (
+                                <input
+                                  value={trackingDraft[order._id] ?? ""}
+                                  onChange={(event) =>
+                                    setTrackingDraft((current) => ({
+                                      ...current,
+                                      [order._id]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="Nomor resi"
+                                  className="mb-2 min-h-9 w-40 border border-[#deded9] px-3 text-xs outline-none focus:border-ink"
+                                />
+                              )}
+                              {action ? (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => void changeOrderStatus(order, action.status)}
+                                  className="inline-flex min-h-9 items-center border border-ink bg-ink px-3 text-[11px] font-bold text-white disabled:opacity-50"
+                                >
+                                  {busy ? "Menyimpan..." : action.label}
+                                </button>
+                              ) : order.status === "waiting_payment" ? (
+                                <div className="space-y-2">
+                                  <p className="text-[10px] text-muted">Menunggu pembayaran pembeli</p>
+                                  <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => {
+                                      if (window.confirm(`Batalkan pesanan ${order.orderNumber}? Barang akan tersedia kembali.`)) {
+                                        void changeOrderStatus(order, "cancelled");
+                                      }
+                                    }}
+                                    className="inline-flex min-h-9 items-center border border-[#7d2626] px-3 text-[11px] font-bold text-[#7d2626] disabled:opacity-50"
+                                  >
+                                    {busy ? "Menyimpan..." : "Batalkan"}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-muted">Tidak ada aksi</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           </>
         )}
@@ -333,13 +442,12 @@ function ProductEditor({
           chest: String(product.size.chest),
           length: String(product.size.length),
           weight: String(product.weight),
-          status: product.status,
           description: product.description,
           grade: product.condition.grade,
           conditionDescription: product.condition.description,
           minusTags: product.condition.minusTags.join(", "),
           sellerNote: product.condition.sellerNote,
-          image: product.images[0] || "/assets/5656c.png",
+          images: product.images.join(", "),
         }
       : emptyDraft,
   );
@@ -363,6 +471,10 @@ function ProductEditor({
       setError("Lengkapi nama, brand, harga, label ukuran, ukuran cm, dan deskripsi.");
       return;
     }
+    if (draft.images.split(",").filter((url) => url.trim()).length !== 4) {
+      setError("Isi tepat 4 URL foto (depan, belakang, samping, detail), dipisah koma.");
+      return;
+    }
     setSaving(true);
     setError("");
     const body: Partial<Product> = {
@@ -376,9 +488,11 @@ function ProductEditor({
         length: Number(draft.length),
       },
       weight: Number(draft.weight) || 300,
-      status: draft.status,
       description: draft.description.trim(),
-      images: [draft.image.trim() || "/assets/5656c.png"],
+      images: draft.images
+        .split(",")
+        .map((url) => url.trim())
+        .filter(Boolean),
       condition: {
         grade: draft.grade,
         description: draft.conditionDescription.trim() || "Kondisi sesuai foto.",
@@ -470,25 +584,15 @@ function ProductEditor({
               onChange={(value) => update("weight", value)}
             />
             <EditorSelect
-              label="Ketersediaan"
-              value={draft.status}
-              onChange={(value) => update("status", value as ProductStatus)}
-              options={[
-                { value: "available", label: "Tersedia" },
-                { value: "reserved", label: "Dipesan" },
-                { value: "sold", label: "Terjual" },
-              ]}
-            />
-            <EditorSelect
               label="Grade kondisi"
               value={draft.grade}
               onChange={(value) => update("grade", value as ProductDraft["grade"])}
               options={["A", "B", "C"].map((value) => ({ value, label: `Grade ${value}` }))}
             />
             <EditorField
-              label="URL gambar utama"
-              value={draft.image}
-              onChange={(value) => update("image", value)}
+              label="URL 4 foto (depan, belakang, samping, detail), pisah koma"
+              value={draft.images}
+              onChange={(value) => update("images", value)}
             />
             <EditorField
               label="Deskripsi barang"

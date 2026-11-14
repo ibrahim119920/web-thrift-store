@@ -371,7 +371,7 @@ export const ordersService = {
       total: first.pagination?.totalData ?? first.data.length,
     };
   },
-  updateStatus: (id: string, body: { status: Order["status"] }) => {
+  updateStatus: (id: string, body: { status: Order["status"]; trackingNumber?: string }) => {
     if (USE_MOCK) {
       const updated = readStorage<Order[]>(ORDERS_KEY, mockOrders).map((order) =>
         order._id === id ? { ...order, status: body.status } : order,

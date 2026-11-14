@@ -49,6 +49,7 @@ export interface Review {
 export interface Order {
   _id: string;
   orderNumber: string;
+  userId?: string | { _id: string; name: string; email: string; phone?: string };
   items: { productId: string; name: string; price: number; qty: number }[];
   subtotal: number;
   shippingCost: number;
