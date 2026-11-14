@@ -216,12 +216,94 @@ export function OrdersPage() {
               </div>
             </article>
           ))}
+          {id && visibleOrders[0] && <OrderDetail order={visibleOrders[0]} />}
           {!id && (
             <LoadMore hasMore={page < totalPages} loading={loadingMore} onClick={() => void loadMore()} />
           )}
         </div>
       )}
     </main>
+  );
+}
+
+const timelineSteps: OrderStatus[] = ["waiting_payment", "paid", "processing", "shipped", "completed"];
+
+function OrderDetail({ order }: { order: Order }) {
+  const address = typeof order.shippingAddressId === "object" ? order.shippingAddressId : null;
+  const currentStep = timelineSteps.indexOf(order.status);
+
+  return (
+    <section className="grid gap-5 tablet:grid-cols-2">
+      <div className="border border-[#deded9] bg-white p-5">
+        <h2 className="font-extrabold">Alamat pengiriman</h2>
+        {address ? (
+          <div className="mt-3 space-y-1 text-sm leading-6">
+            <p className="font-bold">
+              {address.recipientName} · {address.phone}
+            </p>
+            <p className="text-muted">
+              {address.address}, {address.district}, {address.city}, {address.province}{" "}
+              {address.postalCode}
+            </p>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted">Alamat tidak tersedia.</p>
+        )}
+        <div className="mt-5 border-t border-[#e8e8e3] pt-4 text-sm">
+          <p className="text-xs font-bold text-muted">NOMOR RESI</p>
+          <p className="mt-1 font-bold">
+            {order.shipping.trackingNumber || "Belum tersedia"}
+          </p>
+        </div>
+      </div>
+
+      <div className="border border-[#deded9] bg-white p-5">
+        <h2 className="font-extrabold">Rincian pembayaran</h2>
+        <dl className="mt-3 space-y-2 text-sm">
+          {order.items.map((item) => (
+            <div key={item.productId} className="flex justify-between gap-4">
+              <dt className="text-muted">
+                {item.name} × {item.qty}
+              </dt>
+              <dd className="font-semibold">{formatRupiah(item.price * item.qty)}</dd>
+            </div>
+          ))}
+          <div className="flex justify-between gap-4 border-t border-[#e8e8e3] pt-2">
+            <dt className="text-muted">Ongkos kirim</dt>
+            <dd className="font-semibold">{formatRupiah(order.shippingCost)}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-bold">Total</dt>
+            <dd className="font-black">{formatRupiah(order.total)}</dd>
+          </div>
+        </dl>
+      </div>
+
+      {order.status === "cancelled" ? (
+        <div className="border border-[#deded9] bg-white p-5 tablet:col-span-2">
+          <p className="font-extrabold">Pesanan dibatalkan</p>
+        </div>
+      ) : (
+        <div className="border border-[#deded9] bg-white p-5 tablet:col-span-2">
+          <h2 className="font-extrabold">Status pesanan</h2>
+          <ol className="mt-4 grid gap-3 tablet:grid-cols-5">
+            {timelineSteps.map((step, index) => {
+              const reached = index <= currentStep;
+              return (
+                <li
+                  key={step}
+                  className={`border-t-4 pt-3 text-xs font-bold ${
+                    reached ? "border-ink text-ink" : "border-[#e0e0da] text-muted"
+                  }`}
+                >
+                  {orderStatusLabel(step)}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+    </section>
   );
 }
 

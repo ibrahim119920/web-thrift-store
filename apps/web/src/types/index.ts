@@ -55,7 +55,7 @@ export interface Order {
   subtotal: number;
   shippingCost: number;
   total: number;
-  shippingAddressId: string;
+  shippingAddressId: string | ShippingAddress;
   shipping: { courier: string; service: string; trackingNumber?: string };
   status: OrderStatus;
   expiresAt: string;
