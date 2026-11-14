@@ -2,6 +2,7 @@ import { USE_MOCK } from "../lib/constants";
 import type { Product, Review } from "../types";
 import { apiRequest, mockResponse } from "./api";
 import { mockProducts, mockReviews } from "./mock/data";
+import { normalizeReview, type RawReview } from "./reviews";
 
 const PRODUCTS_KEY = "wanttosell_products";
 
@@ -105,8 +106,11 @@ export const getProduct = (id: string) =>
     : apiRequest<Product>(`/products/${id}`);
 export const getProductReviews = (id: string) =>
   USE_MOCK
-    ? mockResponse(mockReviews.filter((review) => review.product._id === id))
-    : apiRequest<Review[]>(`/products/${id}/reviews`);
+    ? mockResponse(mockReviews.filter((review) => review.product?._id === id))
+    : apiRequest<RawReview[]>(`/products/${id}/reviews`).then((response) => ({
+        ...response,
+        data: response.data.map(normalizeReview),
+      }));
 export const getAdminProducts = () =>
   USE_MOCK ? mockResponse(readMockProducts()) : apiRequest<Product[]>("/admin/products?limit=100");
 

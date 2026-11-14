@@ -9,8 +9,8 @@ export function ReviewCard({ review }: { review: Review }) {
         <blockquote className="mt-7 text-base leading-relaxed">“{review.comment}”</blockquote>
       </div>
       <div className="mt-8 flex items-end justify-between gap-4 text-xs">
-        <strong>{review.user.name}</strong>
-        <span className="text-right text-muted">{review.product.name}</span>
+        <strong>{review.user?.name ?? "Pembeli"}</strong>
+        <span className="text-right text-muted">{review.product?.name}</span>
       </div>
     </article>
   );
