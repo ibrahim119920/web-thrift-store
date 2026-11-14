@@ -4,6 +4,7 @@ const { Product, Review, PRODUCT_STATUS } = require('../models');
 const { AppError, asyncHandler, ok, escapeRegex, parsePaging, paginationMeta } = require('../utils');
 const { authenticate, requireRole, validate } = require('../middlewares');
 const reviewRoutes = require('./reviews');
+const { KEY_PATTERN, assertProductImagesUploaded, withImageUrls } = require('../services/storageService');
 
 const productSchema = z.object({
   name: z.string().trim().min(2),
@@ -18,7 +19,9 @@ const productSchema = z.object({
     sellerNote: z.string().default(''),
   }),
   price: z.number().nonnegative(),
-  images: z.array(z.string().url()).length(4, 'Wajib 4 foto (depan, belakang, samping, detail)'),
+  images: z
+    .array(z.string().regex(KEY_PATTERN, 'Foto harus berupa object key hasil upload (POST /api/uploads/product-image)'))
+    .length(4, 'Wajib 4 foto (depan, belakang, samping, detail)'),
   weight: z.number().int().positive().optional(),
 });
 const updateSchema = productSchema.partial();
@@ -72,7 +75,7 @@ router.get(
       Product.find(filter).sort(SORTS[q.sort] || SORTS.newest).skip(skip).limit(limit),
       Product.countDocuments(filter),
     ]);
-    ok(res, data, undefined, 200, { count: data.length, pagination: paginationMeta(total, page, limit) });
+    ok(res, await Promise.all(data.map(withImageUrls)), undefined, 200, { count: data.length, pagination: paginationMeta(total, page, limit) });
   })
 );
 
@@ -85,7 +88,7 @@ router.get(
       { $match: { productId: product._id } },
       { $group: { _id: null, avg: { $avg: '$rating' }, total: { $sum: 1 } } },
     ]);
-    ok(res, { ...product.toObject(), reviewSummary: { averageRating: agg ? Math.round(agg.avg * 10) / 10 : null, totalReviews: agg?.total || 0 } });
+    ok(res, { ...(await withImageUrls(product)), reviewSummary: { averageRating: agg ? Math.round(agg.avg * 10) / 10 : null, totalReviews: agg?.total || 0 } });
   })
 );
 
@@ -95,8 +98,9 @@ router.post(
   requireRole('admin'),
   validate(productSchema),
   asyncHandler(async (req, res) => {
+    await assertProductImagesUploaded(req.body.images);
     const product = await Product.create({ ...req.body, status: 'available' });
-    ok(res, product, 'Produk berhasil ditambahkan', 201);
+    ok(res, await withImageUrls(product), 'Produk berhasil ditambahkan', 201);
   })
 );
 
@@ -109,9 +113,10 @@ router.put(
     const product = await Product.findById(req.params.id);
     if (!product) throw new AppError(404, 'Produk tidak ditemukan');
     if (product.status !== 'available') throw new AppError(409, `Produk berstatus "${product.status}" tidak dapat diubah`);
+    if (req.body.images) await assertProductImagesUploaded(req.body.images);
     product.set(req.body);
     await product.save();
-    ok(res, product, 'Produk berhasil diperbarui');
+    ok(res, await withImageUrls(product), 'Produk berhasil diperbarui');
   })
 );
 
