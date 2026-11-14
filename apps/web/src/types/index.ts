@@ -23,7 +23,7 @@ export interface Product {
   description: string;
   category: string;
   brand: string;
-  size: { chest: number; length: number };
+  size: { label: string; chest: number; length: number };
   condition: {
     grade: "A" | "B" | "C";
     description: string;

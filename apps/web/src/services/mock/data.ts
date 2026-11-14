@@ -30,6 +30,7 @@ export const mockProducts: Product[] = seeds.map(([name, category, brand, price]
   category,
   brand,
   size: {
+    label: ["S", "M", "L", "XL", "M"][index % 5],
     chest: 52 + (index % 5) * 2,
     length: 67 + (index % 4) * 2,
   },

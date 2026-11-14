@@ -28,6 +28,7 @@ type ProductDraft = {
   category: string;
   brand: string;
   price: string;
+  sizeLabel: string;
   chest: string;
   length: string;
   weight: string;
@@ -45,6 +46,7 @@ const emptyDraft: ProductDraft = {
   category: "kemeja",
   brand: "",
   price: "",
+  sizeLabel: "",
   chest: "",
   length: "",
   weight: "",
@@ -327,6 +329,7 @@ function ProductEditor({
           category: product.category,
           brand: product.brand,
           price: String(product.price),
+          sizeLabel: product.size.label ?? "",
           chest: String(product.size.chest),
           length: String(product.size.length),
           weight: String(product.weight),
@@ -352,11 +355,12 @@ function ProductEditor({
       !draft.name.trim() ||
       !draft.brand.trim() ||
       !draft.price ||
+      !draft.sizeLabel.trim() ||
       !draft.chest ||
       !draft.length ||
       !draft.description.trim()
     ) {
-      setError("Lengkapi nama, brand, harga, ukuran cm, dan deskripsi.");
+      setError("Lengkapi nama, brand, harga, label ukuran, ukuran cm, dan deskripsi.");
       return;
     }
     setSaving(true);
@@ -366,7 +370,11 @@ function ProductEditor({
       category: draft.category,
       brand: draft.brand.trim(),
       price: Number(draft.price),
-      size: { chest: Number(draft.chest), length: Number(draft.length) },
+      size: {
+        label: draft.sizeLabel.trim(),
+        chest: Number(draft.chest),
+        length: Number(draft.length),
+      },
       weight: Number(draft.weight) || 300,
       status: draft.status,
       description: draft.description.trim(),
@@ -437,6 +445,11 @@ function ProductEditor({
               value={draft.price}
               type="number"
               onChange={(value) => update("price", value)}
+            />
+            <EditorField
+              label="Label ukuran (mis. S, M, L, XL)"
+              value={draft.sizeLabel}
+              onChange={(value) => update("sizeLabel", value)}
             />
             <EditorField
               label="Lebar dada / LD (cm)"
