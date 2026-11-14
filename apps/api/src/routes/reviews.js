@@ -11,19 +11,22 @@ const reviewSchema = z.object({
   comment: z.string().trim().max(1000).default(''),
 });
 
-router.get(
-  '/',
-  asyncHandler(async (req, res) => {
+// GET /api/products/:id/reviews -> ulasan satu produk; GET /api/reviews -> ulasan terbaru semua produk.
+const listReviews = asyncHandler(async (req, res) => {
+  const filter = {};
+  if (req.params.id !== undefined) {
     if (!mongoose.isValidObjectId(req.params.id)) throw new AppError(400, 'ID produk tidak valid');
-    const { page, limit, skip } = parsePaging(req.query);
-    const filter = { productId: req.params.id };
-    const [data, total] = await Promise.all([
-      Review.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('userId', 'name avatar').populate('productId', 'name category images'),
-      Review.countDocuments(filter),
-    ]);
-    ok(res, data, undefined, 200, { count: data.length, pagination: paginationMeta(total, page, limit) });
-  })
-);
+    filter.productId = req.params.id;
+  }
+  const { page, limit, skip } = parsePaging(req.query);
+  const [data, total] = await Promise.all([
+    Review.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('userId', 'name avatar').populate('productId', 'name category images'),
+    Review.countDocuments(filter),
+  ]);
+  ok(res, data, undefined, 200, { count: data.length, pagination: paginationMeta(total, page, limit) });
+});
+
+router.get('/', listReviews);
 
 // Buyer boleh mengulas setelah order berstatus "completed" (alur transaksi langkah 6) dan hanya untuk barang di order-nya.
 router.post(
@@ -49,3 +52,4 @@ router.post(
 );
 
 module.exports = router;
+module.exports.listReviews = listReviews;
