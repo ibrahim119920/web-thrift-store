@@ -6,6 +6,7 @@ import { ErrorState } from "../../components/ui/ErrorState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useToast } from "../../components/ui/Toast";
 import { formatRupiah } from "../../lib/format";
+import { USE_MOCK } from "../../lib/constants";
 import { ordersService } from "../../services";
 import type { Order, PaymentRecord } from "../../types";
 
@@ -23,6 +24,7 @@ export function PaymentPage() {
   const [initiating, setInitiating] = useState(false);
   const [error, setError] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [snapLoading, setSnapLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -92,6 +94,28 @@ export function PaymentPage() {
       showToast("Metode pembayaran belum dapat dibuat.", "error");
     } finally {
       setInitiating(false);
+    }
+  };
+
+  const startMidtrans = async () => {
+    setSnapLoading(true);
+    try {
+      const response = await ordersService.createSnap(id);
+      const next = response.data;
+      if (!next) throw new Error("Transaksi Midtrans tidak tersedia.");
+      setPayment(next);
+      if (next.redirectUrl) {
+        window.location.href = next.redirectUrl;
+        return;
+      }
+      showToast("Transaksi dibuat, tetapi tautan pembayaran tidak tersedia.", "error");
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "Pembayaran Midtrans belum dapat dimulai.",
+        "error",
+      );
+    } finally {
+      setSnapLoading(false);
     }
   };
 
@@ -196,18 +220,33 @@ export function PaymentPage() {
             </Link>
           </div>
         ) : !payment ? (
-          <PaymentMethodPicker
-            choice={choice}
-            onChoice={setChoice}
-            bank={bank}
-            onBank={setBank}
-            loading={initiating}
-            onContinue={() => void initiatePayment()}
-          />
+          USE_MOCK ? (
+            <PaymentMethodPicker
+              choice={choice}
+              onChoice={setChoice}
+              bank={bank}
+              onBank={setBank}
+              loading={initiating}
+              onContinue={() => void initiatePayment()}
+            />
+          ) : (
+            <MidtransPayment
+              order={order}
+              loading={snapLoading}
+              onPay={() => void startMidtrans()}
+            />
+          )
         ) : payment.method === "qris" ? (
           <QrisPayment payment={payment} order={order} />
-        ) : (
+        ) : payment.method === "bank_transfer" ? (
           <BankPayment payment={payment} order={order} onCopy={() => void copyVirtualAccount()} />
+        ) : (
+          <MidtransPending
+            payment={payment}
+            order={order}
+            loading={snapLoading}
+            onPay={() => void startMidtrans()}
+          />
         )}
 
         {!cancelled && !expired && order.status === "waiting_payment" && (
@@ -223,6 +262,77 @@ export function PaymentPage() {
 
       <OrderStepper status={order.status} paymentStarted={Boolean(payment)} />
     </>
+  );
+}
+
+function MidtransPayment({
+  order,
+  loading,
+  onPay,
+}: {
+  order: Order;
+  loading: boolean;
+  onPay: () => void;
+}) {
+  return (
+    <section>
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-pink">Metode Pembayaran</p>
+      <h2 className="display-title mt-2 text-3xl">Bayar dengan Midtrans</h2>
+      <div className="mt-7 border border-[#deded9] bg-white p-6 tablet:p-8">
+        <p className="text-sm leading-6 text-muted">
+          Anda akan diarahkan ke halaman Midtrans untuk memilih metode pembayaran: QRIS, virtual
+          account bank, e-wallet, atau kartu. Status pesanan diperbarui otomatis begitu pembayaran
+          diterima.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[#e8e9e5] pt-6">
+          <div>
+            <p className="text-xs text-muted">Total pembayaran</p>
+            <p className="mt-1 text-2xl font-black">{formatRupiah(order.total)}</p>
+          </div>
+          <Button onClick={onPay} disabled={loading}>
+            {loading ? "Menyiapkan..." : "Lanjutkan ke Midtrans"}
+          </Button>
+        </div>
+        <p className="mt-5 text-xs text-muted">Pesanan {order.orderNumber}</p>
+      </div>
+    </section>
+  );
+}
+
+function MidtransPending({
+  payment,
+  order,
+  loading,
+  onPay,
+}: {
+  payment: PaymentRecord;
+  order: Order;
+  loading: boolean;
+  onPay: () => void;
+}) {
+  return (
+    <section className="border border-[#4b4b4b] bg-white p-6 tablet:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e9e5] pb-5">
+        <strong>Menunggu pembayaran Midtrans</strong>
+        <span className="text-xs font-semibold uppercase text-muted">
+          {payment.transactionStatus || payment.status}
+        </span>
+      </div>
+      <p className="mt-6 text-sm leading-6 text-muted">
+        Transaksi sudah dibuat. Jika halaman pembayaran Midtrans belum terbuka atau tertutup,
+        tekan tombol di bawah untuk melanjutkan. Status akan diperbarui otomatis setelah pembayaran
+        diverifikasi.
+      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[#e8e9e5] pt-6">
+        <div>
+          <p className="text-xs text-muted">Total pembayaran</p>
+          <p className="mt-1 text-2xl font-black">{formatRupiah(payment.amount || order.total)}</p>
+        </div>
+        <Button onClick={onPay} disabled={loading}>
+          {loading ? "Menyiapkan..." : "Buka halaman pembayaran"}
+        </Button>
+      </div>
+    </section>
   );
 }
 

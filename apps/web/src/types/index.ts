@@ -74,14 +74,25 @@ export interface ShippingAddress {
 export interface PaymentRecord {
   _id: string;
   orderId: string;
-  method: "bank_transfer" | "qris";
+  /** Dinormalisasi oleh service dari `paymentMethod` milik backend. */
+  method: "bank_transfer" | "qris" | "snap" | "ewallet" | "credit_card" | "cstore" | "other";
+  paymentMethod?: string;
   status: PaymentStatus;
   amount: number;
   createdAt: string;
+  snapToken?: string;
+  redirectUrl?: string;
+  transactionStatus?: string;
   paymentData: {
     bankName?: string;
     virtualAccount?: string;
+    bank?: string;
+    vaNumber?: string;
     qrString?: string;
+    billKey?: string;
+    billerCode?: string;
+    paymentCode?: string;
+    store?: string;
   };
 }
 

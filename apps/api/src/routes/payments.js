@@ -1,24 +1,43 @@
 const crypto = require('crypto');
+const express = require('express');
 const { z } = require('zod');
 const { Order, Payment } = require('../models');
 const { AppError, asyncHandler, ok } = require('../utils');
-const { validate } = require('../middlewares');
+const { authenticate } = require('../middlewares');
 const { applyPaymentResult, cancelOrder } = require('../services/orderService');
+const { createSnapForOrder, handleMidtransNotification, syncPayment } = require('../services/paymentService');
 
-// Provider pembayaran disimulasikan (mengikuti pola Midtrans sandbox: transaction_status + signature SHA-512).
-// Tidak ada koneksi ke Midtrans sungguhan, sehingga tidak butuh akun/kunci pihak ketiga untuk pengujian.
+// ---------------------------------------------------------------------------
+// Pembayaran asli: Midtrans Snap (lihat services/midtransService.js)
+// ---------------------------------------------------------------------------
+const orderPayments = express.Router({ mergeParams: true });
+orderPayments.use(authenticate);
+
+orderPayments.post(
+  '/snap',
+  asyncHandler(async (req, res) => {
+    const payment = await createSnapForOrder({ orderId: req.params.id, user: req.user });
+    ok(res, payment, 'Transaksi Midtrans dibuat. Lanjutkan pembayaran.', 201);
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Pembayaran simulasi (tanpa Midtrans) — dipakai demo lokal & koleksi Postman.
+// Set PAYMENT_SIMULATION=false di production untuk mematikan endpoint ini.
+// ---------------------------------------------------------------------------
 const PROVIDER = 'midtrans-sandbox-simulated';
 const serverKey = () => process.env.PAYMENT_SERVER_KEY;
+const simulationEnabled = () => process.env.PAYMENT_SIMULATION !== 'false';
 
 const sign = (transactionId, transactionStatus, grossAmount) =>
   crypto.createHash('sha512').update(`${transactionId}${transactionStatus}${grossAmount}${serverKey()}`).digest('hex');
 
 const STATUS_MAP = { settlement: 'success', capture: 'success', deny: 'failed', failure: 'failed', cancel: 'failed', expire: 'expired' };
 
-// Router yang di-mount di /orders/:id/payments
-const orderPayments = require('express').Router({ mergeParams: true });
-
 async function createPayment(req, res, paymentMethod) {
+  if (!simulationEnabled()) {
+    throw new AppError(403, 'Pembayaran simulasi dinonaktifkan. Gunakan POST /api/orders/:id/payments/snap (Midtrans).');
+  }
   const order = await Order.findOne({ _id: req.params.id, userId: req.user._id });
   if (!order) throw new AppError(404, 'Order tidak ditemukan');
   if (order.status !== 'waiting_payment') throw new AppError(409, `Order berstatus "${order.status}", tidak dapat dibayar`);
@@ -50,22 +69,29 @@ async function createPayment(req, res, paymentMethod) {
   ok(res, payment, `Pembayaran ${paymentMethod === 'qris' ? 'QRIS' : 'transfer bank'} dibuat. Selesaikan sebelum batas waktu.`, 201);
 }
 
-orderPayments.post('/qris', require('../middlewares').authenticate, asyncHandler((req, res) => createPayment(req, res, 'qris')));
-orderPayments.post('/bank-transfer', require('../middlewares').authenticate, asyncHandler((req, res) => createPayment(req, res, 'bank_transfer')));
+orderPayments.post('/qris', asyncHandler((req, res) => createPayment(req, res, 'qris')));
+orderPayments.post('/bank-transfer', asyncHandler((req, res) => createPayment(req, res, 'bank_transfer')));
 orderPayments.get(
   '/',
-  require('../middlewares').authenticate,
   asyncHandler(async (req, res) => {
     const order = await Order.findOne({ _id: req.params.id, userId: req.user._id });
     if (!order) throw new AppError(404, 'Order tidak ditemukan');
-    const data = await Payment.find({ orderId: order._id }).sort({ createdAt: -1 });
+    const stored = await Payment.find({ orderId: order._id }).sort({ createdAt: -1 });
+    // Pembayaran Midtrans yang masih pending dicek ulang ke API (throttled) agar status
+    // tetap benar walau webhook belum/tidak sampai (mis. development di localhost).
+    const data = await Promise.all(stored.map((payment) => syncPayment(payment)));
     ok(res, data, undefined, 200, { count: data.length });
   })
 );
 
-// Webhook publik dari payment gateway (di-mount di /payments/webhook). Keamanan lewat verifikasi signature.
-const webhook = require('express').Router();
-const webhookSchema = z.object({
+// ---------------------------------------------------------------------------
+// Webhook publik. Menerima dua format:
+// 1. Notifikasi Midtrans: { order_id, transaction_status, status_code, gross_amount, signature_key, ... }
+// 2. Simulasi lama: { transactionId, transactionStatus, grossAmount, signature }
+// ---------------------------------------------------------------------------
+const webhook = express.Router();
+
+const legacySchema = z.object({
   transactionId: z.string().min(1),
   transactionStatus: z.enum(['settlement', 'capture', 'deny', 'failure', 'cancel', 'expire']),
   grossAmount: z.string().regex(/^\d+$/, 'grossAmount harus string angka'),
@@ -74,9 +100,18 @@ const webhookSchema = z.object({
 
 webhook.post(
   '/webhook',
-  validate(webhookSchema),
   asyncHandler(async (req, res) => {
-    const { transactionId, transactionStatus, grossAmount, signature } = req.body;
+    const body = req.body || {};
+
+    if (body.order_id !== undefined || body.signature_key !== undefined) {
+      const result = await handleMidtransNotification(body);
+      return ok(res, result, result.changed ? 'Status pembayaran Midtrans diperbarui' : 'Notifikasi Midtrans diterima');
+    }
+
+    const parsed = legacySchema.safeParse(body);
+    if (!parsed.success) throw new AppError(400, 'Payload webhook tidak dikenali (bukan notifikasi Midtrans maupun simulasi)');
+
+    const { transactionId, transactionStatus, grossAmount, signature } = parsed.data;
     const expected = Buffer.from(sign(transactionId, transactionStatus, grossAmount));
     const given = Buffer.from(signature);
     if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) throw new AppError(403, 'Signature tidak valid');
