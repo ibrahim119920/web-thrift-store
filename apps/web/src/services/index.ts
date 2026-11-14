@@ -22,6 +22,18 @@ const readStorage = <T>(key: string, fallback: T): T => {
 const writeStorage = (key: string, value: unknown) =>
   localStorage.setItem(key, JSON.stringify(value));
 
+// Backend menyimpan `paymentMethod` + `paymentData.{bank,vaNumber}`; UI memakai
+// `method` + `paymentData.{bankName,virtualAccount}`. Samakan di satu tempat.
+const normalizePayment = (payment: PaymentRecord): PaymentRecord => ({
+  ...payment,
+  method: (payment.paymentMethod as PaymentRecord["method"]) || payment.method,
+  paymentData: {
+    ...payment.paymentData,
+    bankName: payment.paymentData?.bankName || payment.paymentData?.bank?.toUpperCase(),
+    virtualAccount: payment.paymentData?.virtualAccount || payment.paymentData?.vaNumber,
+  },
+});
+
 const defaultAddresses: ShippingAddress[] = [
   {
     _id: "address-1",
@@ -219,7 +231,22 @@ export const ordersService = {
       writeStorage(PAYMENTS_KEY, updated);
       return mockResponse(updated.filter((payment) => payment.orderId === id));
     }
-    return apiRequest<PaymentRecord[]>(`/orders/${id}/payments`);
+    return apiRequest<PaymentRecord[]>(`/orders/${id}/payments`).then((response) => ({
+      ...response,
+      data: response.data.map(normalizePayment),
+    }));
+  },
+  createSnap: (id: string) => {
+    if (USE_MOCK) return mockResponse<PaymentRecord | null>(null, "Mode mock tidak memakai Midtrans.");
+    return apiRequest<PaymentRecord>(`/orders/${id}/payments/snap`, { method: "POST" }).then(
+      (response) => ({ ...response, data: normalizePayment(response.data) }),
+    );
+  },
+  createQrisCore: (id: string) => {
+    if (USE_MOCK) return mockResponse<PaymentRecord | null>(null, "Mode mock tidak memakai Midtrans.");
+    return apiRequest<PaymentRecord>(`/orders/${id}/payments/qris-core`, { method: "POST" }).then(
+      (response) => ({ ...response, data: normalizePayment(response.data) }),
+    );
   },
   payQris: (id: string) => {
     if (USE_MOCK) {
@@ -241,7 +268,9 @@ export const ordersService = {
       writeStorage(PAYMENTS_KEY, [...records, payment]);
       return mockResponse(payment);
     }
-    return apiRequest<PaymentRecord>(`/orders/${id}/payments/qris`, { method: "POST" });
+    return apiRequest<PaymentRecord>(`/orders/${id}/payments/qris`, { method: "POST" }).then(
+      (response) => ({ ...response, data: normalizePayment(response.data) }),
+    );
   },
   payBank: (id: string, body: { bank: string }) => {
     if (USE_MOCK) {
@@ -267,7 +296,7 @@ export const ordersService = {
     return apiRequest<PaymentRecord>(`/orders/${id}/payments/bank-transfer`, {
       method: "POST",
       body: JSON.stringify(body),
-    });
+    }).then((response) => ({ ...response, data: normalizePayment(response.data) }));
   },
   adminList: (status = "") => {
     if (USE_MOCK) {

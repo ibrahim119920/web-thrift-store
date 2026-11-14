@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { Product, Order, Payment, ShippingAddress } = require('../models');
 const { AppError, withTransaction } = require('../utils');
 const { calculateShipping } = require('../utils/shipping');
+const { notifyOrder } = require('./notificationService');
 
 const expiryMinutes = () => parseInt(process.env.ORDER_EXPIRY_MINUTES, 10) || 60;
 
@@ -15,7 +16,7 @@ async function createOrder({ userId, productIds, shippingAddressId, courier, ser
   const address = await ShippingAddress.findOne({ _id: shippingAddressId, userId });
   if (!address) throw new AppError(404, 'Alamat pengiriman tidak ditemukan');
 
-  return withTransaction(async (session) => {
+  const order = await withTransaction(async (session) => {
     const reserved = [];
     for (const id of productIds) {
       // Atomic update: hanya lolos jika status masih "available" -> mencegah double purchase.
@@ -52,6 +53,8 @@ async function createOrder({ userId, productIds, shippingAddressId, courier, ser
     );
     return order;
   });
+  notifyOrder(order._id, 'created');
+  return order;
 }
 
 const productIdsOf = (order) => order.items.map((i) => i.productId);
@@ -65,18 +68,20 @@ async function cancelOrderInSession(order, session) {
 }
 
 async function cancelOrder(orderId) {
-  return withTransaction(async (session) => {
+  const cancelled = await withTransaction(async (session) => {
     const order = await Order.findById(orderId).session(session);
     if (!order) throw new AppError(404, 'Order tidak ditemukan');
     if (order.status !== 'waiting_payment') throw new AppError(409, `Order berstatus "${order.status}" tidak dapat dibatalkan`);
     await cancelOrderInSession(order, session);
     return order;
   });
+  notifyOrder(cancelled._id, 'cancelled');
+  return cancelled;
 }
 
 // Langkah 3-4: hasil webhook payment gateway menentukan status payment & order.
 async function applyPaymentResult(transactionId, result) {
-  return withTransaction(async (session) => {
+  const outcome = await withTransaction(async (session) => {
     const payment = await Payment.findOne({ transactionId }).session(session);
     if (!payment) throw new AppError(404, 'Transaksi tidak ditemukan');
     if (payment.status !== 'pending') return { payment, changed: false }; // idempoten: webhook duplikat diabaikan
@@ -98,6 +103,9 @@ async function applyPaymentResult(transactionId, result) {
     await payment.save({ session });
     return { payment, order, changed: true };
   });
+  if (outcome.changed && outcome.payment.status === 'success') notifyOrder(outcome.order._id, 'paid');
+  if (outcome.changed && outcome.payment.status === 'expired' && outcome.order.status === 'cancelled') notifyOrder(outcome.order._id, 'cancelled');
+  return outcome;
 }
 
 // Melepas produk dari order yang lewat batas bayar (dipanggil berkala oleh server).

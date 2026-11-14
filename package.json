@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Thrift store web app",
+  "engines": {
+    "node": "22.x"
+  },
   "homepage": "https://github.com/ibrahim119920/web-thrift-store#readme",
   "bugs": {
     "url": "https://github.com/ibrahim119920/web-thrift-store/issues"

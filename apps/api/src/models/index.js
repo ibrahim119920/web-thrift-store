@@ -108,14 +108,21 @@ const paymentSchema = new Schema(
   {
     orderId: { type: ObjectId, ref: 'Order', required: true, index: true },
     userId: { type: ObjectId, ref: 'User', required: true },
-    provider: { type: String, required: true },
-    transactionId: { type: String, required: true, unique: true },
+    provider: { type: String, required: true, default: 'midtrans' },
+    transactionId: { type: String, required: true, unique: true }, // = order_id yang dikirim ke Midtrans
     amount: { type: Number, required: true },
-    paymentMethod: { type: String, required: true, enum: ['qris', 'bank_transfer'] },
+    paymentMethod: { type: String, required: true, enum: ['qris', 'bank_transfer', 'snap', 'ewallet', 'credit_card', 'cstore', 'other'] },
     status: { type: String, enum: PAYMENT_STATUS, default: 'pending' },
     paidAt: { type: Date },
     expiresAt: { type: Date }, // [ekstensi] "waktu pembayaran habis" (status expired)
     paymentData: { type: Object }, // [ekstensi] qrString / nomor VA yang ditampilkan ke pembeli
+    // [ekstensi] kolom khusus Midtrans
+    snapToken: { type: String },
+    redirectUrl: { type: String },
+    transactionStatus: { type: String }, // status mentah Midtrans: pending, settlement, expire, ...
+    fraudStatus: { type: String },
+    paymentType: { type: String }, // qris, bank_transfer, gopay, credit_card, ...
+    lastSyncedAt: { type: Date }, // throttle sinkronisasi status ke API Midtrans
   },
   { timestamps: true }
 );
