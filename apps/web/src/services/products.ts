@@ -2,6 +2,7 @@ import { USE_MOCK } from "../lib/constants";
 import type { Product, Review } from "../types";
 import { apiRequest, mockResponse } from "./api";
 import { mockProducts, mockReviews } from "./mock/data";
+import { normalizeReview, type RawReview } from "./reviews";
 
 const PRODUCTS_KEY = "wanttosell_products";
 
@@ -26,10 +27,10 @@ export interface ProductQuery {
   brand?: string;
   minPrice?: number;
   maxPrice?: number;
-  minChest?: number;
-  maxChest?: number;
-  minLength?: number;
-  maxLength?: number;
+  chestMin?: number;
+  chestMax?: number;
+  lengthMin?: number;
+  lengthMax?: number;
   page?: number;
   limit?: number;
   status?: string;
@@ -63,14 +64,14 @@ export async function getProducts(query: ProductQuery = {}) {
     data = data.filter((product) => product.price >= query.minPrice!);
   if (query.maxPrice !== undefined)
     data = data.filter((product) => product.price <= query.maxPrice!);
-  if (query.minChest !== undefined)
-    data = data.filter((product) => product.size.chest >= query.minChest!);
-  if (query.maxChest !== undefined)
-    data = data.filter((product) => product.size.chest <= query.maxChest!);
-  if (query.minLength !== undefined)
-    data = data.filter((product) => product.size.length >= query.minLength!);
-  if (query.maxLength !== undefined)
-    data = data.filter((product) => product.size.length <= query.maxLength!);
+  if (query.chestMin !== undefined)
+    data = data.filter((product) => product.size.chest >= query.chestMin!);
+  if (query.chestMax !== undefined)
+    data = data.filter((product) => product.size.chest <= query.chestMax!);
+  if (query.lengthMin !== undefined)
+    data = data.filter((product) => product.size.length >= query.lengthMin!);
+  if (query.lengthMax !== undefined)
+    data = data.filter((product) => product.size.length <= query.lengthMax!);
   data.sort((a, b) =>
     query.sort === "price_asc"
       ? a.price - b.price
@@ -105,8 +106,11 @@ export const getProduct = (id: string) =>
     : apiRequest<Product>(`/products/${id}`);
 export const getProductReviews = (id: string) =>
   USE_MOCK
-    ? mockResponse(mockReviews.filter((review) => review.product._id === id))
-    : apiRequest<Review[]>(`/products/${id}/reviews`);
+    ? mockResponse(mockReviews.filter((review) => review.product?._id === id))
+    : apiRequest<RawReview[]>(`/products/${id}/reviews`).then((response) => ({
+        ...response,
+        data: response.data.map(normalizeReview),
+      }));
 export const getAdminProducts = () =>
   USE_MOCK ? mockResponse(readMockProducts()) : apiRequest<Product[]>("/admin/products?limit=100");
 

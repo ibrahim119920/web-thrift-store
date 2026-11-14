@@ -1,7 +1,13 @@
 import { ADDRESSES_KEY, FAVORITES_KEY, ORDERS_KEY, PAYMENTS_KEY, USE_MOCK } from "../lib/constants";
-import type { Order, PaymentRecord, Product, ShippingAddress } from "../types";
+import type { Order, PaymentConfig, PaymentRecord, Product, ShippingAddress } from "../types";
 import { apiRequest, mockResponse } from "./api";
 import { mockOrders, mockProducts } from "./mock/data";
+
+interface WishlistItem {
+  _id: string;
+  userId: string;
+  productId: Product | string | null;
+}
 
 const getMockFavoriteIds = (): string[] => {
   try {
@@ -81,7 +87,13 @@ export const favoritesService = {
   list: () =>
     USE_MOCK
       ? mockResponse(mockProducts.filter((product) => getMockFavoriteIds().includes(product._id)))
-      : apiRequest<Product[]>("/favorites"),
+      : apiRequest<WishlistItem[]>("/favorites").then((response) => ({
+          ...response,
+          // BE mengembalikan dokumen Wishlist dengan produk ter-populate di `productId`.
+          data: response.data
+            .map((item) => item.productId)
+            .filter((product): product is Product => typeof product === "object" && product !== null),
+        })),
   add: (productId: string) => {
     if (USE_MOCK) {
       const ids = getMockFavoriteIds();
@@ -134,6 +146,11 @@ export const addressesService = {
     return apiRequest<null>(`/shipping-addresses/${id}`, { method: "DELETE" });
   },
 };
+export const paymentConfigService = {
+  // Mode pembayaran ditentukan backend: sandbox → QRIS Core, production → Snap.
+  get: () => apiRequest<PaymentConfig>("/payments/config"),
+};
+
 export const ordersService = {
   list: () =>
     USE_MOCK

@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import { Check, Clock3, Copy, PackageCheck, QrCode } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { ErrorState } from "../../components/ui/ErrorState";
@@ -8,8 +8,8 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { useToast } from "../../components/ui/Toast";
 import { formatRupiah } from "../../lib/format";
 import { USE_MOCK } from "../../lib/constants";
-import { ordersService } from "../../services";
-import type { Order, PaymentRecord } from "../../types";
+import { ordersService, paymentConfigService } from "../../services";
+import type { Order, PaymentConfig, PaymentRecord } from "../../types";
 
 type PaymentChoice = "qris" | "bank_transfer";
 
@@ -27,6 +27,30 @@ export function PaymentPage() {
   const [cancelling, setCancelling] = useState(false);
   const [snapLoading, setSnapLoading] = useState(false);
   const [qrisLoading, setQrisLoading] = useState(false);
+  const [qrisError, setQrisError] = useState("");
+  const [config, setConfig] = useState<PaymentConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(!USE_MOCK);
+  const [configError, setConfigError] = useState(false);
+  const autoQrisRef = useRef(false);
+
+  const loadConfig = async () => {
+    if (USE_MOCK) return;
+    setConfigLoading(true);
+    setConfigError(false);
+    try {
+      const response = await paymentConfigService.get();
+      setConfig(response.data);
+    } catch {
+      setConfigError(true);
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -121,23 +145,33 @@ export function PaymentPage() {
     }
   };
 
-  const startQrisCore = async () => {
+  const startQrisCore = async (silent = false) => {
     setQrisLoading(true);
+    setQrisError("");
     try {
       const response = await ordersService.createQrisCore(id);
       const next = response.data;
       if (!next) throw new Error("QRIS sandbox tidak tersedia.");
       setPayment(next);
-      showToast("QRIS sandbox dibuat. Pindai QR dengan simulator.", "success");
+      if (!silent) showToast("QRIS sandbox dibuat. Pindai QR dengan simulator.", "success");
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : "QRIS sandbox belum dapat dibuat.",
-        "error",
-      );
+      const message = error instanceof Error ? error.message : "QRIS sandbox belum dapat dibuat.";
+      setQrisError(message);
+      if (!silent) showToast(message, "error");
     } finally {
       setQrisLoading(false);
     }
   };
+
+  // Sandbox: QRIS dibuat otomatis sekali saat halaman dibuka. Endpoint bersifat idempoten,
+  // jadi transaksi pending yang sudah ada akan dipakai ulang.
+  useEffect(() => {
+    if (USE_MOCK || config?.mode !== "qris-core" || autoQrisRef.current) return;
+    if (!order || order.status !== "waiting_payment" || payment) return;
+    autoQrisRef.current = true;
+    void startQrisCore(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.mode, order?.status, payment, id]);
 
   const copyVirtualAccount = async () => {
     const value = payment?.paymentData.virtualAccount;
@@ -249,14 +283,34 @@ export function PaymentPage() {
               loading={initiating}
               onContinue={() => void initiatePayment()}
             />
-          ) : (
+          ) : configLoading ? (
+            <PaymentModeSkeleton />
+          ) : configError || !config ? (
+            <ErrorState
+              title="Metode pembayaran tidak dapat dimuat"
+              description="Server tidak mengembalikan konfigurasi pembayaran. Coba lagi."
+              onRetry={() => void loadConfig()}
+            />
+          ) : config.mode === "snap" ? (
             <MidtransPayment
               order={order}
               loading={snapLoading}
-              qrisLoading={qrisLoading}
               onPay={() => void startMidtrans()}
-              onQrisCore={() => void startQrisCore()}
             />
+          ) : qrisError ? (
+            <div className="border border-[#8b3a3a] bg-red-50 p-8 text-center">
+              <h2 className="text-xl font-extrabold text-red-800">QRIS belum dapat dibuat</h2>
+              <p className="mt-3 text-sm text-red-700">{qrisError}</p>
+              <Button
+                className="mt-5"
+                disabled={qrisLoading}
+                onClick={() => void startQrisCore()}
+              >
+                {qrisLoading ? "Mencoba..." : "Coba lagi"}
+              </Button>
+            </div>
+          ) : (
+            <QrisPreparing />
           )
         ) : payment.method === "qris" && payment.paymentData.qrUrl ? (
           <QrisSandboxPayment payment={payment} order={order} />
@@ -268,8 +322,13 @@ export function PaymentPage() {
           <MidtransPending
             payment={payment}
             order={order}
-            loading={snapLoading}
-            onPay={() => void startMidtrans()}
+            loading={config?.mode === "qris-core" ? qrisLoading : snapLoading}
+            actionLabel={
+              config?.mode === "qris-core" ? "Buat QRIS sandbox" : "Buka halaman pembayaran"
+            }
+            onPay={() =>
+              void (config?.mode === "qris-core" ? startQrisCore() : startMidtrans())
+            }
           />
         )}
 
@@ -292,15 +351,11 @@ export function PaymentPage() {
 function MidtransPayment({
   order,
   loading,
-  qrisLoading,
   onPay,
-  onQrisCore,
 }: {
   order: Order;
   loading: boolean;
-  qrisLoading: boolean;
   onPay: () => void;
-  onQrisCore: () => void;
 }) {
   return (
     <section>
@@ -323,23 +378,30 @@ function MidtransPayment({
         </div>
         <p className="mt-5 text-xs text-muted">Pesanan {order.orderNumber}</p>
       </div>
-
-      <div className="mt-5 border border-dashed border-[#c9c9c2] bg-canvas p-6">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">Khusus sandbox</p>
-        <p className="mt-3 text-sm leading-6 text-muted">
-          Buat QRIS lewat Core API, lalu pindai QR-nya dengan aplikasi simulator
-          (<span className="font-mono text-xs">tools/midtrans-qris-sim</span>) atau tempel URL-nya ke
-          simulator Midtrans.
-        </p>
-        <Button
-          onClick={onQrisCore}
-          disabled={qrisLoading}
-          className="mt-4 bg-white text-ink ring-1 ring-ink"
-        >
-          {qrisLoading ? "Menyiapkan QRIS..." : "Tampilkan QRIS sandbox"}
-        </Button>
-      </div>
     </section>
+  );
+}
+
+function QrisPreparing() {
+  return (
+    <div className="border border-[#deded9] bg-white p-8 text-center" aria-live="polite">
+      <span className="mx-auto grid size-12 place-items-center rounded-full bg-lime">
+        <QrCode size={20} />
+      </span>
+      <p className="mt-4 text-sm font-bold">Menyiapkan QRIS sandbox…</p>
+      <p className="mt-2 text-xs text-muted">
+        Transaksi QRIS dibuat otomatis. Mohon tunggu sebentar.
+      </p>
+    </div>
+  );
+}
+
+function PaymentModeSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-52 w-full" />
+    </div>
   );
 }
 
@@ -442,11 +504,13 @@ function MidtransPending({
   payment,
   order,
   loading,
+  actionLabel = "Buka halaman pembayaran",
   onPay,
 }: {
   payment: PaymentRecord;
   order: Order;
   loading: boolean;
+  actionLabel?: string;
   onPay: () => void;
 }) {
   return (
@@ -468,7 +532,7 @@ function MidtransPending({
           <p className="mt-1 text-2xl font-black">{formatRupiah(payment.amount || order.total)}</p>
         </div>
         <Button onClick={onPay} disabled={loading}>
-          {loading ? "Menyiapkan..." : "Buka halaman pembayaran"}
+          {loading ? "Menyiapkan..." : actionLabel}
         </Button>
       </div>
     </section>

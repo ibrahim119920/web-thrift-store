@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const save = (nextToken: string, nextUser: User) => {
+    if (!nextToken || !nextUser?._id) throw new Error("Respons autentikasi tidak lengkap. Coba lagi.");
     localStorage.setItem(TOKEN_KEY, nextToken);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setToken(nextToken);

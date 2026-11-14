@@ -1,0 +1,4 @@
+{
+  "success": false,
+  "message": "API tidak tersedia di domain frontend. Set VITE_API_BASE_URL ke URL backend (mis. https://<backend>/api), lalu redeploy."
+}

@@ -6,6 +6,7 @@ const { AppError, asyncHandler, ok } = require('../utils');
 const { authenticate } = require('../middlewares');
 const { applyPaymentResult, cancelOrder } = require('../services/orderService');
 const { createSnapForOrder, createCoreQrisForOrder, handleMidtransNotification, syncPayment } = require('../services/paymentService');
+const { isProduction } = require('../services/midtransService');
 
 // ---------------------------------------------------------------------------
 // Pembayaran asli: Midtrans Snap (lihat services/midtransService.js)
@@ -16,6 +17,9 @@ orderPayments.use(authenticate);
 orderPayments.post(
   '/snap',
   asyncHandler(async (req, res) => {
+    if (!isProduction()) {
+      throw new AppError(403, 'Snap hanya aktif di production. Di sandbox gunakan QRIS Core (POST /api/orders/:id/payments/qris-core).');
+    }
     const payment = await createSnapForOrder({ orderId: req.params.id, user: req.user });
     ok(res, payment, 'Transaksi Midtrans dibuat. Lanjutkan pembayaran.', 201);
   })
@@ -99,6 +103,17 @@ orderPayments.get(
 // 2. Simulasi lama: { transactionId, transactionStatus, grossAmount, signature }
 // ---------------------------------------------------------------------------
 const webhook = express.Router();
+
+// Mode pembayaran aktif, dipakai frontend untuk memilih UI. Tanpa data sensitif.
+// sandbox → QRIS Core, production → Snap.
+webhook.get('/config', (_req, res) => {
+  const production = isProduction();
+  ok(res, {
+    mode: production ? 'snap' : 'qris-core',
+    isProduction: production,
+    expiryMinutes: parseInt(process.env.ORDER_EXPIRY_MINUTES, 10) || 60,
+  });
+});
 
 const legacySchema = z.object({
   transactionId: z.string().min(1),

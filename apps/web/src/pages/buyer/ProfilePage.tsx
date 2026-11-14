@@ -10,10 +10,22 @@ import { Skeleton } from "../../components/ui/Skeleton";
 type AddressInput = {
   recipientName: string;
   phone: string;
+  province: string;
+  city: string;
+  district: string;
+  postalCode: string;
   address: string;
 };
 
-const emptyAddress: AddressInput = { recipientName: "", phone: "", address: "" };
+const emptyAddress: AddressInput = {
+  recipientName: "",
+  phone: "",
+  province: "",
+  city: "",
+  district: "",
+  postalCode: "",
+  address: "",
+};
 
 export function ProfilePage() {
   const { user } = useAuth();
@@ -70,8 +82,12 @@ export function ProfilePage() {
     event.preventDefault();
     const nextErrors: Partial<AddressInput> = {};
     if (!form.recipientName.trim()) nextErrors.recipientName = "Nama penerima wajib diisi.";
-    if (!/^[+\d][\d\s-]{7,}$/.test(form.phone.trim()))
-      nextErrors.phone = "Masukkan nomor HP yang valid.";
+    if (!/^(\+62|62|0)8[0-9]{8,12}$/.test(form.phone.trim()))
+      nextErrors.phone = "Nomor HP Indonesia tidak valid (contoh: 081234567890).";
+    if (form.province.trim().length < 2) nextErrors.province = "Provinsi wajib diisi.";
+    if (form.city.trim().length < 2) nextErrors.city = "Kota/kabupaten wajib diisi.";
+    if (form.district.trim().length < 2) nextErrors.district = "Kecamatan wajib diisi.";
+    if (!/^\d{5}$/.test(form.postalCode.trim())) nextErrors.postalCode = "Kode pos harus 5 digit.";
     if (form.address.trim().length < 10) nextErrors.address = "Tulis alamat lebih lengkap.";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
@@ -84,10 +100,10 @@ export function ProfilePage() {
         recipientName: form.recipientName.trim(),
         phone: form.phone.trim(),
         address: form.address.trim(),
-        province: "-",
-        city: "-",
-        district: "-",
-        postalCode: "00000",
+        province: form.province.trim(),
+        city: form.city.trim(),
+        district: form.district.trim(),
+        postalCode: form.postalCode.trim(),
       });
       setAddresses((current) => [...current, response.data]);
       setForm({ ...emptyAddress, recipientName: user?.name || "", phone: user?.phone || "" });
@@ -234,6 +250,30 @@ export function ProfilePage() {
               onChange={(value) => update("phone", value)}
             />
             <AddressField
+              label="Provinsi"
+              value={form.province}
+              error={errors.province}
+              onChange={(value) => update("province", value)}
+            />
+            <AddressField
+              label="Kota / Kabupaten"
+              value={form.city}
+              error={errors.city}
+              onChange={(value) => update("city", value)}
+            />
+            <AddressField
+              label="Kecamatan"
+              value={form.district}
+              error={errors.district}
+              onChange={(value) => update("district", value)}
+            />
+            <AddressField
+              label="Kode pos"
+              value={form.postalCode}
+              error={errors.postalCode}
+              onChange={(value) => update("postalCode", value.replace(/\D/g, "").slice(0, 5))}
+            />
+            <AddressField
               label="Detail alamat"
               value={form.address}
               error={errors.address}
@@ -297,7 +337,7 @@ function AddressField({
           onChange={(event) => onChange(event.target.value)}
           rows={3}
           className={`${shared} resize-y py-3`}
-          placeholder="Nama jalan, nomor rumah, kecamatan, kota, provinsi, dan kode pos"
+          placeholder="Nama jalan, nomor rumah, RT/RW, patokan"
         />
       ) : (
         <input

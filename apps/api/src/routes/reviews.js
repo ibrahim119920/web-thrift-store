@@ -18,7 +18,7 @@ router.get(
     const { page, limit, skip } = parsePaging(req.query);
     const filter = { productId: req.params.id };
     const [data, total] = await Promise.all([
-      Review.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('userId', 'name avatar'),
+      Review.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('userId', 'name avatar').populate('productId', 'name category images'),
       Review.countDocuments(filter),
     ]);
     ok(res, data, undefined, 200, { count: data.length, pagination: paginationMeta(total, page, limit) });

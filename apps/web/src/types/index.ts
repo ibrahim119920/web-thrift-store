@@ -41,8 +41,8 @@ export interface Review {
   _id: string;
   rating: number;
   comment: string;
-  user: { name: string };
-  product: { _id: string; name: string; category: string };
+  user?: { name: string; avatar?: string };
+  product?: { _id: string; name: string; category: string; images?: string[] };
   createdAt: string;
 }
 
@@ -95,6 +95,12 @@ export interface PaymentRecord {
     paymentCode?: string;
     store?: string;
   };
+}
+
+export interface PaymentConfig {
+  mode: "qris-core" | "snap";
+  isProduction: boolean;
+  expiryMinutes: number;
 }
 
 export interface ApiResponse<T> {
