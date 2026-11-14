@@ -23,7 +23,7 @@ export interface Product {
   description: string;
   category: string;
   brand: string;
-  size: { chest: number; length: number };
+  size: { label: string; chest: number; length: number };
   condition: {
     grade: "A" | "B" | "C";
     description: string;
@@ -34,6 +34,7 @@ export interface Product {
   images: string[];
   weight: number;
   status: ProductStatus;
+  reviewSummary?: { averageRating: number | null; totalReviews: number };
   createdAt: string;
 }
 
@@ -41,7 +42,7 @@ export interface Review {
   _id: string;
   rating: number;
   comment: string;
-  user?: { name: string; avatar?: string };
+  user?: { _id?: string; name: string; avatar?: string };
   product?: { _id: string; name: string; category: string; images?: string[] };
   createdAt: string;
 }
@@ -49,11 +50,12 @@ export interface Review {
 export interface Order {
   _id: string;
   orderNumber: string;
+  userId?: string | { _id: string; name: string; email: string; phone?: string };
   items: { productId: string; name: string; price: number; qty: number }[];
   subtotal: number;
   shippingCost: number;
   total: number;
-  shippingAddressId: string;
+  shippingAddressId: string | ShippingAddress;
   shipping: { courier: string; service: string; trackingNumber?: string };
   status: OrderStatus;
   expiresAt: string;

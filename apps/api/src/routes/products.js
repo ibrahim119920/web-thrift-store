@@ -50,7 +50,7 @@ router.get(
     const { page, limit, skip } = parsePaging(q);
     const filter = {};
     if (q.category) filter.category = String(q.category).toLowerCase();
-    if (q.brand) filter.brand = new RegExp(`^${escapeRegex(String(q.brand))}$`, 'i');
+    if (q.brand) filter.brand = new RegExp(escapeRegex(String(q.brand)), 'i');
     if (q.q) {
       const rx = new RegExp(escapeRegex(String(q.q)), 'i');
       filter.$or = [{ name: rx }, { brand: rx }, { description: rx }];

@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
+import { LoadMore } from "../../components/ui/LoadMore";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useToast } from "../../components/ui/Toast";
 import { formatRupiah } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel, orderStatusOptions } from "../../lib/order";
 import { ordersService } from "../../services";
@@ -11,19 +13,60 @@ import type { Order, OrderStatus } from "../../types";
 
 type Filter = "all" | OrderStatus;
 
+const PAGE_SIZE = 10;
+
 export function OrdersPage() {
   const { id } = useParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  const cancelOrder = async (orderId: string) => {
+    if (!window.confirm("Batalkan pesanan ini?")) return;
+    setCancellingId(orderId);
+    try {
+      const response = await ordersService.cancel(orderId);
+      setOrders((current) =>
+        current.map((order) => (order._id === orderId ? response.data : order)),
+      );
+      showToast("Pesanan dibatalkan.", "success");
+    } catch {
+      showToast("Pesanan belum dapat dibatalkan.", "error");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const fetchPage = async (nextPage: number) => {
+    const response = await ordersService.list({
+      status: filter === "all" ? undefined : filter,
+      page: nextPage,
+      limit: PAGE_SIZE,
+    });
+    setTotalPages(response.pagination?.totalPages ?? 1);
+    setTotalOrders(response.pagination?.totalData ?? response.data.length);
+    return response.data;
+  };
 
   const load = async () => {
     setLoading(true);
     setError(false);
     try {
-      const response = await ordersService.list();
-      setOrders(response.data);
+      if (id) {
+        const response = await ordersService.get(id);
+        setOrders(response.data ? [response.data] : []);
+        setTotalOrders(response.data ? 1 : 0);
+      } else {
+        setOrders(await fetchPage(1));
+        setPage(1);
+      }
     } catch {
       setError(true);
     } finally {
@@ -31,15 +74,26 @@ export function OrdersPage() {
     }
   };
 
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const data = await fetchPage(next);
+      setOrders((current) => [...current, ...data]);
+      setPage(next);
+    } catch {
+      setError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     void load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, filter]);
 
-  const visibleOrders = id
-    ? orders.filter((order) => order._id === id)
-    : filter === "all"
-      ? orders
-      : orders.filter((order) => order.status === filter);
+  const visibleOrders = orders;
 
   return (
     <main className="container-main py-12 tablet:py-16">
@@ -57,7 +111,7 @@ export function OrdersPage() {
             Pantau pembayaran, proses, dan pengiriman semua pakaian pilihanmu.
           </p>
         </div>
-        {!id && <p className="text-xs font-bold">{orders.length} TOTAL PESANAN</p>}
+        {!id && <p className="text-xs font-bold">{totalOrders} TOTAL PESANAN</p>}
       </div>
 
       {!id && (
@@ -141,20 +195,115 @@ export function OrdersPage() {
                   <p className="text-xs text-muted">Total belanja</p>
                   <p className="mt-1 text-lg font-black">{formatRupiah(order.total)}</p>
                   {order.status === "waiting_payment" && (
-                    <Link
-                      to={`/orders/${order._id}/pay`}
-                      className="mt-4 inline-flex items-center gap-2 text-xs font-bold"
-                    >
-                      Lanjut bayar <ArrowRight size={14} />
-                    </Link>
+                    <div className="mt-4 flex flex-col gap-3">
+                      <Link
+                        to={`/orders/${order._id}/pay`}
+                        className="inline-flex items-center gap-2 text-xs font-bold"
+                      >
+                        Lanjut bayar <ArrowRight size={14} />
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={cancellingId === order._id}
+                        onClick={() => void cancelOrder(order._id)}
+                        className="inline-flex w-fit items-center gap-2 text-xs font-bold text-red-600 disabled:opacity-50"
+                      >
+                        {cancellingId === order._id ? "Membatalkan..." : "Batalkan pesanan"}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
             </article>
           ))}
+          {id && visibleOrders[0] && <OrderDetail order={visibleOrders[0]} />}
+          {!id && (
+            <LoadMore hasMore={page < totalPages} loading={loadingMore} onClick={() => void loadMore()} />
+          )}
         </div>
       )}
     </main>
+  );
+}
+
+const timelineSteps: OrderStatus[] = ["waiting_payment", "paid", "processing", "shipped", "completed"];
+
+function OrderDetail({ order }: { order: Order }) {
+  const address = typeof order.shippingAddressId === "object" ? order.shippingAddressId : null;
+  const currentStep = timelineSteps.indexOf(order.status);
+
+  return (
+    <section className="grid gap-5 tablet:grid-cols-2">
+      <div className="border border-[#deded9] bg-white p-5">
+        <h2 className="font-extrabold">Alamat pengiriman</h2>
+        {address ? (
+          <div className="mt-3 space-y-1 text-sm leading-6">
+            <p className="font-bold">
+              {address.recipientName} · {address.phone}
+            </p>
+            <p className="text-muted">
+              {address.address}, {address.district}, {address.city}, {address.province}{" "}
+              {address.postalCode}
+            </p>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted">Alamat tidak tersedia.</p>
+        )}
+        <div className="mt-5 border-t border-[#e8e8e3] pt-4 text-sm">
+          <p className="text-xs font-bold text-muted">NOMOR RESI</p>
+          <p className="mt-1 font-bold">
+            {order.shipping.trackingNumber || "Belum tersedia"}
+          </p>
+        </div>
+      </div>
+
+      <div className="border border-[#deded9] bg-white p-5">
+        <h2 className="font-extrabold">Rincian pembayaran</h2>
+        <dl className="mt-3 space-y-2 text-sm">
+          {order.items.map((item) => (
+            <div key={item.productId} className="flex justify-between gap-4">
+              <dt className="text-muted">
+                {item.name} × {item.qty}
+              </dt>
+              <dd className="font-semibold">{formatRupiah(item.price * item.qty)}</dd>
+            </div>
+          ))}
+          <div className="flex justify-between gap-4 border-t border-[#e8e8e3] pt-2">
+            <dt className="text-muted">Ongkos kirim</dt>
+            <dd className="font-semibold">{formatRupiah(order.shippingCost)}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-bold">Total</dt>
+            <dd className="font-black">{formatRupiah(order.total)}</dd>
+          </div>
+        </dl>
+      </div>
+
+      {order.status === "cancelled" ? (
+        <div className="border border-[#deded9] bg-white p-5 tablet:col-span-2">
+          <p className="font-extrabold">Pesanan dibatalkan</p>
+        </div>
+      ) : (
+        <div className="border border-[#deded9] bg-white p-5 tablet:col-span-2">
+          <h2 className="font-extrabold">Status pesanan</h2>
+          <ol className="mt-4 grid gap-3 tablet:grid-cols-5">
+            {timelineSteps.map((step, index) => {
+              const reached = index <= currentStep;
+              return (
+                <li
+                  key={step}
+                  className={`border-t-4 pt-3 text-xs font-bold ${
+                    reached ? "border-ink text-ink" : "border-[#e0e0da] text-muted"
+                  }`}
+                >
+                  {orderStatusLabel(step)}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+    </section>
   );
 }
 

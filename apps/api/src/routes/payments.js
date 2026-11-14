@@ -47,6 +47,8 @@ const sign = (transactionId, transactionStatus, grossAmount) =>
 
 const STATUS_MAP = { settlement: 'success', capture: 'success', deny: 'failed', failure: 'failed', cancel: 'failed', expire: 'expired' };
 
+const BANKS = ['bca', 'bni', 'bri', 'mandiri', 'permata'];
+
 async function createPayment(req, res, paymentMethod) {
   if (!simulationEnabled()) {
     throw new AppError(403, 'Pembayaran simulasi dinonaktifkan. Gunakan POST /api/orders/:id/payments/snap (Midtrans).');
@@ -58,8 +60,15 @@ async function createPayment(req, res, paymentMethod) {
     await cancelOrder(order._id);
     throw new AppError(409, 'Batas waktu pembayaran order telah habis, order dibatalkan');
   }
+  const bank = String(req.body?.bank || 'bca').toLowerCase();
+  if (paymentMethod === 'bank_transfer' && !BANKS.includes(bank)) throw new AppError(400, `bank harus salah satu dari: ${BANKS.join(', ')}`);
   // Satu order hanya boleh punya satu pembayaran pending; kembalikan yang sudah ada (idempoten).
-  const existing = await Payment.findOne({ orderId: order._id, status: 'pending', paymentMethod });
+  const existing = await Payment.findOne({
+    orderId: order._id,
+    status: 'pending',
+    paymentMethod,
+    ...(paymentMethod === 'bank_transfer' ? { 'paymentData.bank': bank } : {}),
+  });
   if (existing) return ok(res, existing, 'Pembayaran pending sudah ada', 200);
   await Payment.updateMany({ orderId: order._id, status: 'pending' }, { $set: { status: 'expired' } }); // ganti metode
 
@@ -67,7 +76,7 @@ async function createPayment(req, res, paymentMethod) {
   const paymentData =
     paymentMethod === 'qris'
       ? { qrString: `00020101021226670016COM.WANTTOSELL.WWW0118${transactionId}5204599953033605802ID5910WantToSell6007Sleman6304ABCD`, acquirer: 'gopay' }
-      : { bank: 'bca', vaNumber: `8077${String(Date.now()).slice(-10)}` };
+      : { bank, vaNumber: `8077${String(Date.now()).slice(-10)}` };
   const payment = await Payment.create({
     orderId: order._id,
     userId: req.user._id,

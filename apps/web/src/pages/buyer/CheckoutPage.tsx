@@ -286,8 +286,8 @@ export function CheckoutPage() {
                 }}
                 options={[
                   { label: "JNE", value: "jne" },
-                  { label: "POS Indonesia", value: "pos" },
-                  { label: "TIKI", value: "tiki" },
+                  { label: "J&T Express", value: "jnt" },
+                  { label: "SiCepat", value: "sicepat" },
                 ]}
                 className="rounded-none border-[#bdbdbd]"
               />
@@ -496,14 +496,14 @@ const shippingOptions: Record<string, { label: string; value: string }[]> = {
     { label: "Regular (REG)", value: "reg" },
     { label: "Yakin Esok Sampai (YES)", value: "yes" },
   ],
-  pos: [
-    { label: "Pos Reguler", value: "reguler" },
-    { label: "Pos Express", value: "express" },
+  jnt: [
+    { label: "Regular", value: "reg" },
+    { label: "Express", value: "express" },
   ],
-  tiki: [
+  sicepat: [
     { label: "Regular (REG)", value: "reg" },
-    { label: "Over Night Service (ONS)", value: "ons" },
+    { label: "Best", value: "best" },
   ],
 };
 
-const fastServices = ["yes", "express", "ons"];
+const fastServices = ["yes", "express", "best"];
