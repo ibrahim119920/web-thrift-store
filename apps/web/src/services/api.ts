@@ -22,18 +22,34 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
       ...init.headers,
     },
   });
-  const body = (await response.json().catch(() => ({}))) as ApiResponse<T> & ApiErrorBody;
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+  const body = (isJson ? await response.json().catch(() => ({})) : {}) as ApiResponse<T> & ApiErrorBody;
+
   if (!response.ok) {
     if (response.status === 401) {
       localStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new Event("auth:unauthorized"));
     }
+    const issues = Array.isArray(body.errors) ? body.errors : [];
     throw new ApiError(
-      body.message || "Terjadi kesalahan. Coba lagi.",
+      body.message || `Permintaan gagal (${response.status}).`,
       response.status,
-      Object.fromEntries((body.errors || []).map((item) => [item.field, item.message])),
+      Object.fromEntries(issues.map((item) => [item.field, item.message])),
     );
   }
+
+  // Respons 200 tapi bukan JSON / tanpa `data` biasanya berarti request /api diarahkan ke
+  // halaman frontend (SPA rewrite). Jangan dikembalikan, karena pemanggil akan crash saat `.map`.
+  if (!isJson || !body || typeof body !== "object" || !("data" in body)) {
+    throw new ApiError(
+      body?.message ||
+        `Respons API tidak valid (${response.status} ${contentType || "tanpa content-type"}). ` +
+          `Pastikan VITE_API_BASE_URL mengarah ke backend (contoh https://<backend>/api), bukan domain frontend.`,
+      502,
+    );
+  }
+
   return body;
 }
 

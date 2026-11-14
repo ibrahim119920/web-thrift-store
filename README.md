@@ -61,6 +61,12 @@ npm run dev:web                                # http://localhost:5173
 
 Default `VITE_USE_MOCK=true` sehingga frontend jalan tanpa backend. Untuk memakai API asli, set `VITE_USE_MOCK=false`, nyalakan backend (`npm run dev`), dan request `/api` akan diteruskan Vite ke `http://localhost:5000`.
 
+### Deploy frontend (Vercel)
+
+- Root Directory: **kosong** (repo root), Install `npm install`, Build `npm run build:web`, Output `apps/web/dist`.
+- Environment Variables: `VITE_USE_MOCK=false` dan `VITE_API_BASE_URL=https://<backend>/api`.
+- `VITE_API_BASE_URL` **wajib absolut**. Jangan memakai `/api`, karena Vercel tidak mem-proxy `/api` ke backend; request akan masuk ke aplikasi frontend sendiri. Path `/api/*` di domain frontend sekarang dibalas `api-error.json` dengan pesan yang jelas.
+
 ## Menjalankan backend
 
 Backend menggunakan Node.js, Express, dan MongoDB. Semua perintah `npm` di bawah dijalankan dari direktori root repository; root `package.json` meneruskannya ke workspace `api`.
