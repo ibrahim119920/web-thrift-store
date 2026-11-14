@@ -1,5 +1,5 @@
 import { ADDRESSES_KEY, FAVORITES_KEY, ORDERS_KEY, PAYMENTS_KEY, USE_MOCK } from "../lib/constants";
-import type { Order, PaymentConfig, PaymentRecord, Product, ShippingAddress } from "../types";
+import type { ApiResponse, Order, PaymentConfig, PaymentRecord, Product, ShippingAddress } from "../types";
 import { apiRequest, mockResponse } from "./api";
 import { mockOrders, mockProducts } from "./mock/data";
 
@@ -151,11 +151,48 @@ export const paymentConfigService = {
   get: () => apiRequest<PaymentConfig>("/payments/config"),
 };
 
+export interface OrderListParams {
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+const orderQuery = ({ status, page, limit }: OrderListParams) => {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (page) params.set("page", String(page));
+  if (limit) params.set("limit", String(limit));
+  const query = params.toString();
+  return query ? `?${query}` : "";
+};
+
+/** Paginasi untuk mode mock agar bentuknya sama dengan respons BE. */
+const paginateMock = (
+  orders: Order[],
+  { status, page = 1, limit = 10 }: OrderListParams,
+): ApiResponse<Order[]> => {
+  const filtered = status ? orders.filter((order) => order.status === status) : orders;
+  const start = (page - 1) * limit;
+  const data = filtered.slice(start, start + limit);
+  return {
+    success: true,
+    message: "Berhasil",
+    data,
+    count: data.length,
+    pagination: {
+      totalData: filtered.length,
+      totalPages: Math.ceil(filtered.length / limit),
+      currentPage: page,
+      limit,
+    },
+  };
+};
+
 export const ordersService = {
-  list: () =>
+  list: (params: OrderListParams = {}) =>
     USE_MOCK
-      ? mockResponse(readStorage<Order[]>(ORDERS_KEY, mockOrders))
-      : apiRequest<Order[]>("/orders"),
+      ? Promise.resolve(paginateMock(readStorage<Order[]>(ORDERS_KEY, mockOrders), params))
+      : apiRequest<Order[]>(`/orders${orderQuery(params)}`),
   get: (id: string) =>
     USE_MOCK
       ? mockResponse(
@@ -315,12 +352,24 @@ export const ordersService = {
       body: JSON.stringify(body),
     }).then((response) => ({ ...response, data: normalizePayment(response.data) }));
   },
-  adminList: (status = "") => {
-    if (USE_MOCK) {
-      const orders = readStorage<Order[]>(ORDERS_KEY, mockOrders);
-      return mockResponse(status ? orders.filter((order) => order.status === status) : orders);
-    }
-    return apiRequest<Order[]>(`/admin/orders${status ? `?status=${status}` : ""}`);
+  adminList: (params: OrderListParams = {}) =>
+    USE_MOCK
+      ? Promise.resolve(paginateMock(readStorage<Order[]>(ORDERS_KEY, mockOrders), params))
+      : apiRequest<Order[]>(`/admin/orders${orderQuery(params)}`),
+  /** Ambil semua halaman order admin (BE membatasi maksimal 50 per halaman). */
+  adminListAll: async (status = "") => {
+    const limit = 50;
+    const first = await ordersService.adminList({ status, page: 1, limit });
+    const totalPages = first.pagination?.totalPages ?? 1;
+    const rest = await Promise.all(
+      Array.from({ length: Math.max(totalPages - 1, 0) }, (_, index) =>
+        ordersService.adminList({ status, page: index + 2, limit }),
+      ),
+    );
+    return {
+      data: [...first.data, ...rest.flatMap((response) => response.data)],
+      total: first.pagination?.totalData ?? first.data.length,
+    };
   },
   updateStatus: (id: string, body: { status: Order["status"] }) => {
     if (USE_MOCK) {

@@ -71,7 +71,7 @@ export function AdminDashboardPage() {
     try {
       const [productResponse, orderResponse] = await Promise.all([
         getAdminProducts(),
-        ordersService.adminList(),
+        ordersService.adminListAll(),
       ]);
       setProducts(productResponse.data);
       setOrders(orderResponse.data);

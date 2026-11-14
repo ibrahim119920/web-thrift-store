@@ -48,10 +48,10 @@ export function ProfilePage() {
     try {
       const [addressResponse, orderResponse] = await Promise.all([
         addressesService.list(),
-        ordersService.list(),
+        ordersService.list({ limit: 1 }),
       ]);
       setAddresses(addressResponse.data);
-      setOrderCount(orderResponse.data.length);
+      setOrderCount(orderResponse.pagination?.totalData ?? orderResponse.data.length);
     } catch {
       setLoadError(true);
     } finally {

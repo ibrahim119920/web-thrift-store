@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
+import { LoadMore } from "../../components/ui/LoadMore";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { formatRupiah } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel, orderStatusOptions } from "../../lib/order";
@@ -11,19 +12,42 @@ import type { Order, OrderStatus } from "../../types";
 
 type Filter = "all" | OrderStatus;
 
+const PAGE_SIZE = 10;
+
 export function OrdersPage() {
   const { id } = useParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+
+  const fetchPage = async (nextPage: number) => {
+    const response = await ordersService.list({
+      status: filter === "all" ? undefined : filter,
+      page: nextPage,
+      limit: PAGE_SIZE,
+    });
+    setTotalPages(response.pagination?.totalPages ?? 1);
+    setTotalOrders(response.pagination?.totalData ?? response.data.length);
+    return response.data;
+  };
 
   const load = async () => {
     setLoading(true);
     setError(false);
     try {
-      const response = await ordersService.list();
-      setOrders(response.data);
+      if (id) {
+        const response = await ordersService.get(id);
+        setOrders(response.data ? [response.data] : []);
+        setTotalOrders(response.data ? 1 : 0);
+      } else {
+        setOrders(await fetchPage(1));
+        setPage(1);
+      }
     } catch {
       setError(true);
     } finally {
@@ -31,15 +55,26 @@ export function OrdersPage() {
     }
   };
 
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const data = await fetchPage(next);
+      setOrders((current) => [...current, ...data]);
+      setPage(next);
+    } catch {
+      setError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     void load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, filter]);
 
-  const visibleOrders = id
-    ? orders.filter((order) => order._id === id)
-    : filter === "all"
-      ? orders
-      : orders.filter((order) => order.status === filter);
+  const visibleOrders = orders;
 
   return (
     <main className="container-main py-12 tablet:py-16">
@@ -57,7 +92,7 @@ export function OrdersPage() {
             Pantau pembayaran, proses, dan pengiriman semua pakaian pilihanmu.
           </p>
         </div>
-        {!id && <p className="text-xs font-bold">{orders.length} TOTAL PESANAN</p>}
+        {!id && <p className="text-xs font-bold">{totalOrders} TOTAL PESANAN</p>}
       </div>
 
       {!id && (
@@ -152,6 +187,9 @@ export function OrdersPage() {
               </div>
             </article>
           ))}
+          {!id && (
+            <LoadMore hasMore={page < totalPages} loading={loadingMore} onClick={() => void loadMore()} />
+          )}
         </div>
       )}
     </main>
