@@ -2,6 +2,7 @@
 // kegagalan email hanya dicatat di log supaya checkout/pembayaran tetap berhasil.
 const { Order } = require('../models');
 const { sendEmail } = require('./emailService');
+const { AppError } = require('../utils');
 
 const idr = (n) => `Rp${Number(n).toLocaleString('id-ID')}`;
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -63,21 +64,40 @@ function render(order, user, { subject, intro, note }) {
   return { subject, html, text };
 }
 
+// Jeda sebelum percobaan ulang (ms). Hanya error jaringan (fetch failed/timeout) yang diulang;
+// AppError berarti ZeptoMail membalas dengan error (4xx/5xx) atau konfigurasi salah, jadi tidak diulang.
+const RETRY_DELAYS = [2000, 5000];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const errorDetail = (e) => [e.message, e.cause?.code || e.cause?.message].filter(Boolean).join(' - ');
+
+async function sendWithRetry(mail, label) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await sendEmail(mail);
+    } catch (e) {
+      if (e instanceof AppError || attempt >= RETRY_DELAYS.length) throw e;
+      console.warn(`${label}: percobaan ${attempt + 1} gagal (${errorDetail(e)}), dicoba lagi`);
+      await sleep(RETRY_DELAYS[attempt]);
+    }
+  }
+}
+
 /**
  * Kirim email untuk event order ('created' | 'paid' | 'processing' | 'shipped' | 'completed' | 'cancelled').
  * Fire-and-forget: panggil tanpa await.
  */
 function notifyOrder(orderId, event) {
   if (!enabled() || !TEMPLATES[event]) return;
+  const label = `Email "${event}" untuk order ${orderId}`;
   setImmediate(async () => {
     try {
       const order = await Order.findById(orderId).populate('userId', 'name email');
       if (!order || !order.userId?.email) return;
       if (!allowedRecipient(order.userId.email)) return;
       const mail = render(order, order.userId, TEMPLATES[event](order));
-      await sendEmail({ to: { address: order.userId.email, name: order.userId.name }, ...mail });
+      await sendWithRetry({ to: { address: order.userId.email, name: order.userId.name }, ...mail }, label);
     } catch (e) {
-      console.error(`Email "${event}" untuk order ${orderId} gagal:`, e.message);
+      console.error(`${label} gagal:`, errorDetail(e));
     }
   });
 }
