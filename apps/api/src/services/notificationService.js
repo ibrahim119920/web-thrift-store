@@ -13,6 +13,13 @@ function enabled() {
   return process.env.EMAIL_NOTIFICATIONS !== 'false' && token && !token.includes('ganti-dengan') && !!process.env.EMAIL_FROM_ADDRESS;
 }
 
+// Mode testing: bila EMAIL_ALLOWLIST diisi (dipisah koma), email hanya dikirim ke alamat di daftar itu.
+// Kosongkan di production agar semua pembeli menerima email.
+function allowedRecipient(address) {
+  const list = (process.env.EMAIL_ALLOWLIST || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return list.length === 0 || list.includes(String(address).toLowerCase());
+}
+
 const TEMPLATES = {
   created: (o) => ({
     subject: `Pesanan ${o.orderNumber} dibuat - selesaikan pembayaran`,
@@ -66,6 +73,7 @@ function notifyOrder(orderId, event) {
     try {
       const order = await Order.findById(orderId).populate('userId', 'name email');
       if (!order || !order.userId?.email) return;
+      if (!allowedRecipient(order.userId.email)) return;
       const mail = render(order, order.userId, TEMPLATES[event](order));
       await sendEmail({ to: { address: order.userId.email, name: order.userId.name }, ...mail });
     } catch (e) {
