@@ -198,6 +198,15 @@ export function OrdersPage() {
                 <div className="border-t border-[#e8e8e3] pt-4 tablet:min-w-48 tablet:border-l tablet:border-t-0 tablet:pl-7 tablet:pt-0">
                   <p className="text-xs text-muted">Total belanja</p>
                   <p className="mt-1 text-lg font-black">{formatRupiah(order.total)}</p>
+                  {!id && (
+                    <Link
+                      to={`/orders/${order._id}`}
+                      className="mt-4 inline-flex items-center gap-2 text-xs font-bold"
+                    >
+                      {order.status === "completed" ? "Lihat detail & beri ulasan" : "Lihat detail"}{" "}
+                      <ArrowRight size={14} />
+                    </Link>
+                  )}
                   {order.status === "waiting_payment" && (
                     <div className="mt-4 flex flex-col gap-3">
                       <Link
