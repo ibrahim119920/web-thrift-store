@@ -18,9 +18,9 @@ import { Button } from "../../components/ui/Button";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useAuth } from "../../context/AuthContext";
-import { CATEGORIES, USE_MOCK } from "../../lib/constants";
+import { CATEGORIES, MAX_PRODUCT_IMAGES, USE_MOCK } from "../../lib/constants";
 import { formatRupiah, formatSize, getMeasurementLabels } from "../../lib/format";
-import { orderStatusClass, orderStatusLabel } from "../../lib/order";
+import { orderStatusClass, orderStatusLabel, orderStatusOptions } from "../../lib/order";
 import { ordersService } from "../../services";
 import {
   createProduct,
@@ -54,12 +54,19 @@ type ProductDraft = {
   sellerNote: string;
 };
 
-const PHOTO_ANGLES = ["Depan", "Belakang", "Samping", "Detail"];
-
 // key: object key S3 yang dikirim ke API; preview: URL yang bisa ditampilkan browser.
-type PhotoSlot = { key: string; preview: string; uploading: boolean; error: string };
+type PhotoSlot = { id: string; key: string; preview: string; uploading: boolean; error: string };
 
-const emptyPhoto: PhotoSlot = { key: "", preview: "", uploading: false, error: "" };
+let photoIdCounter = 0;
+const newPhotoId = () => `photo-${++photoIdCounter}`;
+
+const PAGE_SIZE = 5;
+
+const PRODUCT_STATUS_OPTIONS: { value: Product["status"]; label: string }[] = [
+  { value: "available", label: "Tersedia" },
+  { value: "reserved", label: "Dipesan" },
+  { value: "sold", label: "Terjual" },
+];
 
 const emptyDraft: ProductDraft = {
   name: "",
@@ -88,6 +95,22 @@ export function AdminDashboardPage() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [productError, setProductError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [visibleProducts, setVisibleProducts] = useState(PAGE_SIZE);
+  const [visibleOrders, setVisibleOrders] = useState(PAGE_SIZE);
+  const [productFilter, setProductFilter] = useState<Product["status"] | "all">("all");
+  const [orderFilter, setOrderFilter] = useState<OrderStatus | "all">("all");
+
+  const filteredProducts = useMemo(
+    () =>
+      productFilter === "all"
+        ? products
+        : products.filter((product) => product.status === productFilter),
+    [products, productFilter],
+  );
+  const filteredOrders = useMemo(
+    () => (orderFilter === "all" ? orders : orders.filter((order) => order.status === orderFilter)),
+    [orders, orderFilter],
+  );
   const [error, setError] = useState(false);
 
   const load = async () => {
@@ -265,9 +288,26 @@ export function AdminDashboardPage() {
                     Ukuran produk selalu dicatat dalam sentimeter.
                   </p>
                 </div>
-                <Button onClick={() => setEditingProduct("new")}>
-                  <Plus size={16} /> Tambah produk
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  {!loading && (
+                    <FilterSelect
+                      label="Ketersediaan"
+                      value={productFilter}
+                      options={PRODUCT_STATUS_OPTIONS.map((option) => ({
+                        ...option,
+                        count: products.filter((product) => product.status === option.value).length,
+                      }))}
+                      total={products.length}
+                      onChange={(value) => {
+                        setProductFilter(value);
+                        setVisibleProducts(PAGE_SIZE);
+                      }}
+                    />
+                  )}
+                  <Button onClick={() => setEditingProduct("new")}>
+                    <Plus size={16} /> Tambah produk
+                  </Button>
+                </div>
               </div>
               {productError && (
                 <p className="border-b border-[#e8e8e3] px-5 py-3 text-xs font-bold text-red-600">
@@ -292,7 +332,14 @@ export function AdminDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {products.map((product) => (
+                      {filteredProducts.length === 0 && (
+                        <tr className="border-t border-[#ecece7]">
+                          <td colSpan={6} className="px-5 py-8 text-center text-xs text-muted">
+                            Tidak ada produk dengan ketersediaan ini.
+                          </td>
+                        </tr>
+                      )}
+                      {filteredProducts.slice(0, visibleProducts).map((product) => (
                         <tr key={product._id} className="border-t border-[#ecece7]">
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-3">
@@ -316,47 +363,81 @@ export function AdminDashboardPage() {
                             <ProductStatus status={product.status} />
                           </td>
                           <td className="px-5 py-3">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setEditingProduct(product)}
-                                className="inline-flex min-h-9 items-center gap-2 border border-ink px-3 text-[11px] font-bold"
-                              >
-                                <Pencil size={13} /> Edit
-                              </button>
-                              <button
-                                type="button"
-                                disabled={
-                                  product.status !== "available" ||
-                                  deletingProductId === product._id
-                                }
-                                title={
-                                  product.status !== "available"
-                                    ? "Hanya produk tersedia yang dapat dihapus"
-                                    : undefined
-                                }
-                                onClick={() => void removeProduct(product)}
-                                className="inline-flex min-h-9 items-center gap-2 border border-red-600 px-3 text-[11px] font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                <Trash2 size={13} />
-                                {deletingProductId === product._id ? "Menghapus..." : "Hapus"}
-                              </button>
-                            </div>
+                            {product.status === "sold" ? (
+                              <span className="text-[10px] text-muted">
+                                Sudah terjual, tidak ada aksi
+                              </span>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={product.status !== "available"}
+                                  title={
+                                    product.status !== "available"
+                                      ? "Produk yang sedang dipesan tidak dapat diubah"
+                                      : undefined
+                                  }
+                                  onClick={() => setEditingProduct(product)}
+                                  className="inline-flex min-h-9 items-center gap-2 border border-ink px-3 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <Pencil size={13} /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={
+                                    product.status !== "available" ||
+                                    deletingProductId === product._id
+                                  }
+                                  title={
+                                    product.status !== "available"
+                                      ? "Hanya produk tersedia yang dapat dihapus"
+                                      : undefined
+                                  }
+                                  onClick={() => void removeProduct(product)}
+                                  className="inline-flex min-h-9 items-center gap-2 border border-red-600 px-3 text-[11px] font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <Trash2 size={13} />
+                                  {deletingProductId === product._id ? "Menghapus..." : "Hapus"}
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  <ShowMore
+                    shown={Math.min(visibleProducts, filteredProducts.length)}
+                    total={filteredProducts.length}
+                    onClick={() => setVisibleProducts((count) => count + PAGE_SIZE)}
+                  />
                 </div>
               )}
             </section>
 
             <section className="mt-7 overflow-hidden border border-[#deded9] bg-white">
-              <div className="border-b border-[#e8e8e3] px-5 py-4">
-                <h2 className="font-extrabold">Kelola pesanan</h2>
-                <p className="mt-1 text-xs text-muted">
-                  Alur status: dibayar → diproses → dikirim (wajib nomor resi) → selesai.
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e3] px-5 py-4">
+                <div>
+                  <h2 className="font-extrabold">Kelola pesanan</h2>
+                  <p className="mt-1 text-xs text-muted">
+                    Alur status: dibayar → diproses → dikirim (wajib nomor resi) → selesai.
+                  </p>
+                </div>
+                {!loading && orders.length > 0 && (
+                  <FilterSelect
+                    label="Status"
+                    value={orderFilter}
+                    options={orderStatusOptions.map((option) => ({
+                      ...option,
+                      count: orders.filter((order) => order.status === option.value).length,
+                    }))}
+                    total={orders.length}
+                    onChange={(value) => {
+                      setOrderFilter(value);
+                      setVisibleOrders(PAGE_SIZE);
+                    }}
+                  />
+                )}
               </div>
               {orderError && (
                 <p className="border-b border-[#f0c9c9] bg-[#fbeaea] px-5 py-3 text-xs font-semibold text-[#7d2626]">
@@ -383,7 +464,14 @@ export function AdminDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map((order) => {
+                      {filteredOrders.length === 0 && (
+                        <tr className="border-t border-[#ecece7]">
+                          <td colSpan={6} className="px-5 py-8 text-center text-xs text-muted">
+                            Tidak ada pesanan dengan status ini.
+                          </td>
+                        </tr>
+                      )}
+                      {filteredOrders.slice(0, visibleOrders).map((order) => {
                         const action = nextOrderAction[order.status];
                         const buyer =
                           typeof order.userId === "object" && order.userId !== null ? order.userId : null;
@@ -458,6 +546,11 @@ export function AdminDashboardPage() {
                       })}
                     </tbody>
                   </table>
+                  <ShowMore
+                    shown={Math.min(visibleOrders, filteredOrders.length)}
+                    total={filteredOrders.length}
+                    onClick={() => setVisibleOrders((count) => count + PAGE_SIZE)}
+                  />
                 </div>
               )}
             </section>
@@ -505,17 +598,16 @@ function ProductEditor({
       : emptyDraft,
   );
   const [photos, setPhotos] = useState<PhotoSlot[]>(() =>
-    PHOTO_ANGLES.map((_, index) =>
-      product?.images[index]
-        ? {
-            ...emptyPhoto,
-            key: product.imageKeys?.[index] ?? product.images[index],
-            preview: product.images[index],
-          }
-        : emptyPhoto,
-    ),
+    (product?.images ?? []).map((image, index) => ({
+      id: newPhotoId(),
+      key: product?.imageKeys?.[index] ?? image,
+      preview: image,
+      uploading: false,
+      error: "",
+    })),
   );
   const [photosChanged, setPhotosChanged] = useState(!product);
+  const [addPhotoError, setAddPhotoError] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -524,25 +616,44 @@ function ProductEditor({
   const update = <Key extends keyof ProductDraft>(key: Key, value: ProductDraft[Key]) =>
     setDraft((current) => ({ ...current, [key]: value }));
 
-  const setPhoto = (index: number, slot: Partial<PhotoSlot>) =>
-    setPhotos((current) =>
-      current.map((item, position) => (position === index ? { ...item, ...slot } : item)),
-    );
+  const setPhoto = (id: string, slot: Partial<PhotoSlot>) =>
+    setPhotos((current) => current.map((item) => (item.id === id ? { ...item, ...slot } : item)));
 
   // Foto langsung di-upload ke S3 begitu dipilih; yang disimpan di draft hanya object key-nya.
-  const choosePhoto = async (index: number, file: File | undefined) => {
-    if (!file) return;
+  const addPhoto = async (file: File | undefined) => {
+    if (!file || photos.length >= MAX_PRODUCT_IMAGES) return;
+    const id = newPhotoId();
+    const preview = URL.createObjectURL(file);
     setPhotosChanged(true);
-    setPhoto(index, { uploading: true, error: "" });
+    setAddPhotoError("");
+    setPhotos((current) => [...current, { id, key: "", preview, uploading: true, error: "" }]);
     try {
       const key = await uploadProductImage(file);
-      setPhoto(index, { key, preview: URL.createObjectURL(file), uploading: false });
+      setPhoto(id, { key, uploading: false });
     } catch (uploadError) {
-      setPhoto(index, {
+      setPhotos((current) => current.filter((item) => item.id !== id));
+      setAddPhotoError(uploadError instanceof Error ? uploadError.message : "Upload foto gagal.");
+    }
+  };
+
+  const replacePhoto = async (id: string, file: File | undefined) => {
+    if (!file) return;
+    setPhotosChanged(true);
+    setPhoto(id, { uploading: true, error: "" });
+    try {
+      const key = await uploadProductImage(file);
+      setPhoto(id, { key, preview: URL.createObjectURL(file), uploading: false });
+    } catch (uploadError) {
+      setPhoto(id, {
         uploading: false,
         error: uploadError instanceof Error ? uploadError.message : "Upload foto gagal.",
       });
     }
+  };
+
+  const removePhoto = (id: string) => {
+    setPhotosChanged(true);
+    setPhotos((current) => current.filter((item) => item.id !== id));
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -563,13 +674,13 @@ function ProductEditor({
       setError("Tunggu sampai semua foto selesai di-upload.");
       return;
     }
-    if (photos.some((photo) => !photo.key)) {
-      setError("Upload tepat 4 foto (depan, belakang, samping, detail).");
+    if (photos.length === 0) {
+      setError("Upload minimal 1 foto barang.");
       return;
     }
     // Produk seed lama menyimpan URL eksternal; API hanya menerima object key S3.
     if (photosChanged && !USE_MOCK && photos.some((photo) => !isImageKey(photo.key))) {
-      setError("Produk ini masih memakai foto lama. Ganti keempat fotonya agar bisa disimpan.");
+      setError("Produk ini masih memakai foto lama. Ganti atau hapus semua foto lama agar bisa disimpan.");
       return;
     }
     setSaving(true);
@@ -690,17 +801,25 @@ function ProductEditor({
             />
             <div className="tablet:col-span-2">
               <span className="mb-2 block text-xs font-semibold">
-                4 foto barang (JPG, PNG, atau WebP, maks. 5 MB)
+                Foto barang (min. 1, maks. {MAX_PRODUCT_IMAGES} · JPG, PNG, atau WebP, maks. 5 MB)
               </span>
+              <p className="-mt-1 mb-3 text-[10px] text-muted">Foto pertama dipakai sebagai foto utama.</p>
               <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">
-                {PHOTO_ANGLES.map((angle, index) => (
+                {photos.map((slot, index) => (
                   <PhotoPicker
-                    key={angle}
-                    angle={angle}
-                    slot={photos[index]}
-                    onPick={(file) => void choosePhoto(index, file)}
+                    key={slot.id}
+                    label={index === 0 ? "Foto utama" : `Foto ${index + 1}`}
+                    slot={slot}
+                    onPick={(file) => void replacePhoto(slot.id, file)}
+                    onRemove={() => removePhoto(slot.id)}
                   />
                 ))}
+                {photos.length < MAX_PRODUCT_IMAGES && (
+                  <AddPhotoButton
+                    first={photos.length === 0}
+                    onPick={(file) => void addPhoto(file)}
+                  />
+                )}
               </div>
             </div>
             <EditorField
@@ -728,6 +847,9 @@ function ProductEditor({
               multiline
             />
           </div>
+          {addPhotoError && (
+            <p className="mt-5 text-xs font-bold text-[#8b2828]">{addPhotoError}</p>
+          )}
           {error && <p className="mt-5 text-xs font-bold text-[#8b2828]">{error}</p>}
           <div className="mt-7 flex flex-wrap gap-3 border-t border-[#e8e8e3] pt-6">
             <Button disabled={saving}>{saving ? "Menyimpan..." : "Simpan produk"}</Button>
@@ -746,44 +868,82 @@ function ProductEditor({
 }
 
 function PhotoPicker({
-  angle,
+  label,
   slot,
   onPick,
+  onRemove,
 }: {
-  angle: string;
+  label: string;
   slot: PhotoSlot;
+  onPick: (file: File | undefined) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="relative">
+      <label className="block cursor-pointer">
+        <div className="relative grid aspect-square place-items-center overflow-hidden border border-[#d8d8d2] bg-canvas hover:border-ink">
+          <img src={slot.preview} alt={label} className="size-full object-cover" />
+          {slot.uploading && (
+            <span className="absolute inset-0 grid place-items-center bg-white/75 text-[10px] font-bold">
+              Mengupload...
+            </span>
+          )}
+        </div>
+        <span className="mt-1 block text-[10px] font-bold text-muted">{label} · ganti</span>
+        {slot.error && <span className="block text-[10px] font-bold text-[#8b2828]">{slot.error}</span>}
+        <PhotoInput disabled={slot.uploading} onPick={onPick} />
+      </label>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={slot.uploading}
+        aria-label={`Hapus ${label.toLowerCase()}`}
+        className="absolute right-1 top-1 grid size-7 place-items-center border border-ink bg-white disabled:opacity-40"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
+function AddPhotoButton({
+  first,
+  onPick,
+}: {
+  first: boolean;
   onPick: (file: File | undefined) => void;
 }) {
   return (
     <label className="block cursor-pointer">
-      <div className="relative grid aspect-square place-items-center overflow-hidden border border-dashed border-[#d8d8d2] bg-canvas hover:border-ink">
-        {slot.preview ? (
-          <img src={slot.preview} alt={`Foto ${angle}`} className="size-full object-cover" />
-        ) : (
-          <ImagePlus size={22} className="text-muted" />
-        )}
-        {slot.uploading && (
-          <span className="absolute inset-0 grid place-items-center bg-white/75 text-[10px] font-bold">
-            Mengupload...
-          </span>
-        )}
+      <div className="grid aspect-square place-items-center border border-dashed border-[#d8d8d2] bg-canvas hover:border-ink">
+        <span className="grid place-items-center gap-1 text-muted">
+          <ImagePlus size={22} />
+          <span className="text-[10px] font-bold">{first ? "Upload foto" : "Tambah foto"}</span>
+        </span>
       </div>
-      <span className="mt-1 block text-[10px] font-bold text-muted">
-        {angle}
-        {slot.preview ? " · ganti" : ""}
-      </span>
-      {slot.error && <span className="block text-[10px] font-bold text-[#8b2828]">{slot.error}</span>}
-      <input
-        type="file"
-        accept={ALLOWED_IMAGE_TYPES.join(",")}
-        disabled={slot.uploading}
-        className="sr-only"
-        onChange={(event) => {
-          onPick(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-      />
+      <PhotoInput onPick={onPick} />
     </label>
+  );
+}
+
+function PhotoInput({
+  disabled,
+  onPick,
+}: {
+  disabled?: boolean;
+  onPick: (file: File | undefined) => void;
+}) {
+  return (
+    <input
+      type="file"
+      accept={ALLOWED_IMAGE_TYPES.join(",")}
+      disabled={disabled}
+      className="sr-only"
+      onChange={(event) => {
+        onPick(event.target.files?.[0]);
+        event.target.value = "";
+      }}
+    />
   );
 }
 
@@ -875,6 +1035,66 @@ function AdminLink({
       {icon}
       {children}
     </Link>
+  );
+}
+
+function FilterSelect<Value extends string>({
+  label,
+  value,
+  options,
+  total,
+  onChange,
+}: {
+  label: string;
+  value: Value | "all";
+  options: { value: Value; label: string; count: number }[];
+  total: number;
+  onChange: (value: Value | "all") => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-xs font-semibold">
+      <span className="text-muted">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as Value | "all")}
+        className="min-h-11 border border-ink bg-white px-3 text-xs font-bold outline-none"
+      >
+        <option value="all">Semua ({total})</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label} ({option.count})
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ShowMore({
+  shown,
+  total,
+  onClick,
+}: {
+  shown: number;
+  total: number;
+  onClick: () => void;
+}) {
+  if (total === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ecece7] px-5 py-4">
+      <p className="text-[11px] text-muted">
+        Menampilkan {shown} dari {total}
+      </p>
+      {shown < total && (
+        <button
+          type="button"
+          onClick={onClick}
+          className="inline-flex min-h-9 items-center border border-ink px-4 text-[11px] font-bold hover:bg-ink hover:text-white"
+        >
+          Muat lebih banyak
+        </button>
+      )}
+    </div>
   );
 }
 

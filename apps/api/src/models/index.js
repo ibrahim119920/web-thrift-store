@@ -6,6 +6,7 @@ const { Schema } = mongoose;
 const { ObjectId } = Schema.Types;
 
 const PRODUCT_STATUS = ['available', 'reserved', 'sold'];
+const MAX_PRODUCT_IMAGES = 10;
 const ORDER_STATUS = ['waiting_payment', 'paid', 'processing', 'shipped', 'completed', 'cancelled'];
 const PAYMENT_STATUS = ['pending', 'success', 'failed', 'expired'];
 
@@ -47,7 +48,10 @@ const productSchema = new Schema(
     // Object key S3 (products/<uuid>.<ext>). Data seed lama boleh berisi URL penuh.
     images: {
       type: [String],
-      validate: { validator: (v) => v.length === 4, message: 'Produk wajib memiliki 4 foto (4 sudut)' },
+      validate: {
+        validator: (v) => v.length >= 1 && v.length <= MAX_PRODUCT_IMAGES,
+        message: `Produk wajib memiliki 1-${MAX_PRODUCT_IMAGES} foto`,
+      },
     },
     weight: { type: Number, default: 500, min: 1 }, // [ekstensi] gram, dasar hitung ongkir otomatis
     status: { type: String, enum: PRODUCT_STATUS, default: 'available' },
@@ -160,6 +164,7 @@ module.exports = {
   Wishlist: mongoose.model('Wishlist', wishlistSchema, 'wishlists'),
   Review: mongoose.model('Review', reviewSchema, 'reviews'),
   PRODUCT_STATUS,
+  MAX_PRODUCT_IMAGES,
   ORDER_STATUS,
   PAYMENT_STATUS,
 };
