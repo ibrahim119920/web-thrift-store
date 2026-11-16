@@ -10,7 +10,7 @@ import { Tabs } from "../../components/ui/Tabs";
 import { useToast } from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
-import { formatRupiah, formatSize } from "../../lib/format";
+import { formatRupiah, getMeasurementLabels } from "../../lib/format";
 import { favoritesService, ordersService } from "../../services";
 import { getProduct, getProducts, getProductReviews } from "../../services/products";
 import { createReview } from "../../services/reviews";
@@ -379,9 +379,10 @@ export function ProductDetailPage() {
 const imageLabels = ["Depan", "Belakang", "Samping", "Detail"];
 
 function ProductInformation({ product }: { product: Product }) {
+  const labels = getMeasurementLabels(product.category);
   const rows = [
-    ["Lebar dada", formatSize(product.size.chest)],
-    ["Panjang badan", `PB ${product.size.length} cm`],
+    [labels.first.name, `${labels.first.short} ${product.size.chest} cm`],
+    [labels.second.name, `${labels.second.short} ${product.size.length} cm`],
     ["Kondisi", `Grade ${product.condition.grade}`],
     ["Berat", `${product.weight} gram`],
     ["Kategori", product.category],

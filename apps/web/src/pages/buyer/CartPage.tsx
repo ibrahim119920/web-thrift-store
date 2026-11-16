@@ -9,7 +9,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { useToast } from "../../components/ui/Toast";
 import { useCart } from "../../context/CartContext";
 import { STORE_LOCATION } from "../../lib/constants";
-import { formatRupiah } from "../../lib/format";
+import { formatRupiah, formatSize } from "../../lib/format";
 import { getProduct } from "../../services/products";
 import type { Product } from "../../types";
 
@@ -168,7 +168,7 @@ export function CartPage() {
                     </div>
 
                     <p className="mt-3 truncate text-xs font-semibold tablet:text-sm">
-                      LD {product.size.chest} cm · PB {product.size.length} cm
+                      {formatSize(product.size.chest, product.size.length, product.category)}
                     </p>
                     <p className="mt-2 text-xs leading-5 text-muted">
                       Grade {product.condition.grade}

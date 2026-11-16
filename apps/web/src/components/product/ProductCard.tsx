@@ -60,7 +60,7 @@ export function ProductCard({
       )}
       <div className="px-4 pb-4 pt-4">
         <p className="text-xs text-muted">
-          {product.brand} | {formatSize(product.size.chest)}
+          {product.brand} | {formatSize(product.size.chest, undefined, product.category)}
         </p>
         <h3 className="mt-1 font-bold">{product.name}</h3>
         <div className="mt-2 flex items-center justify-between">

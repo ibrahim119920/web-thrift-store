@@ -52,6 +52,14 @@ const content: Record<
         title: "PB — Panjang Badan",
         body: "Diukur dari titik bahu tertinggi hingga ujung bawah pakaian.",
       },
+      {
+        title: "LP — Lingkar Pinggang (celana)",
+        body: "Diukur melingkar pada bagian pinggang celana. Untuk celana, ukuran ini menggantikan LD.",
+      },
+      {
+        title: "PC — Panjang Celana (celana)",
+        body: "Diukur dari bagian atas pinggang hingga ujung bawah kaki celana. Untuk celana, ukuran ini menggantikan PB.",
+      },
     ],
   },
   "/faq": {

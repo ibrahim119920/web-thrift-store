@@ -1,3 +1,4 @@
+import { getMeasurementLabels } from "../../lib/format";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 
@@ -27,9 +28,11 @@ interface Props {
   onChange: (value: CatalogFilters) => void;
   onApply: () => void;
   onReset: () => void;
+  category?: string;
 }
 
-export function FilterPanel({ value, brands, onChange, onApply, onReset }: Props) {
+export function FilterPanel({ value, brands, onChange, onApply, onReset, category }: Props) {
+  const measure = getMeasurementLabels(category);
   const update = (key: keyof CatalogFilters, next: string) => onChange({ ...value, [key]: next });
 
   return (
@@ -51,14 +54,14 @@ export function FilterPanel({ value, brands, onChange, onApply, onReset }: Props
         onMax={(next) => update("maxPrice", next)}
       />
       <RangeFields
-        label="Lebar dada (cm)"
+        label={`${measure.first.name} (cm)`}
         min={value.minChest}
         max={value.maxChest}
         onMin={(next) => update("minChest", next)}
         onMax={(next) => update("maxChest", next)}
       />
       <RangeFields
-        label="Panjang badan (cm)"
+        label={`${measure.second.name} (cm)`}
         min={value.minLength}
         max={value.maxLength}
         onMin={(next) => update("minLength", next)}

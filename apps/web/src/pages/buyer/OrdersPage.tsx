@@ -1,6 +1,7 @@
-import { ArrowLeft, ArrowRight, PackageCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, PackageCheck, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { LoadMore } from "../../components/ui/LoadMore";
@@ -9,6 +10,9 @@ import { useToast } from "../../components/ui/Toast";
 import { formatRupiah } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel, orderStatusOptions } from "../../lib/order";
 import { ordersService } from "../../services";
+import { createReview } from "../../services/reviews";
+import { getProductReviews } from "../../services/products";
+import { useAuth } from "../../context/AuthContext";
 import type { Order, OrderStatus } from "../../types";
 
 type Filter = "all" | OrderStatus;
@@ -279,6 +283,8 @@ function OrderDetail({ order }: { order: Order }) {
         </dl>
       </div>
 
+      {order.status === "completed" && <OrderReviews order={order} />}
+
       {order.status === "cancelled" ? (
         <div className="border border-[#deded9] bg-white p-5 tablet:col-span-2">
           <p className="font-extrabold">Pesanan dibatalkan</p>
@@ -326,5 +332,140 @@ function FilterButton({
     >
       {children}
     </button>
+  );
+}
+
+function OrderReviews({ order }: { order: Order }) {
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const [reviewed, setReviewed] = useState<Set<string>>(new Set());
+  const [checking, setChecking] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setChecking(true);
+    Promise.all(
+      order.items.map((item) =>
+        getProductReviews(item.productId)
+          .then((response) =>
+            response.data.some((review) => review.user?._id === user?._id) ? item.productId : null,
+          )
+          .catch(() => null),
+      ),
+    )
+      .then((ids) => {
+        if (!cancelled) setReviewed(new Set(ids.filter((value): value is string => !!value)));
+      })
+      .finally(() => {
+        if (!cancelled) setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [order, user?._id]);
+
+  const open = (productId: string) => {
+    setActiveId(productId);
+    setRating(5);
+    setComment("");
+  };
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>, productId: string) => {
+    event.preventDefault();
+    setSubmitting(true);
+    try {
+      await createReview(productId, { orderId: order._id, rating, comment: comment.trim() });
+      setReviewed((current) => new Set(current).add(productId));
+      setActiveId(null);
+      showToast("Terima kasih, ulasan Anda sudah dikirim.", "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Ulasan belum dapat dikirim.", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="border border-[#deded9] bg-white p-5 tablet:col-span-2">
+      <h2 className="font-extrabold">Ulasan barang</h2>
+      <p className="mt-1 text-xs text-muted">Pesanan selesai. Bagikan pengalamanmu untuk setiap barang.</p>
+      <ul className="mt-4 divide-y divide-[#e8e8e3]">
+        {order.items.map((item) => (
+          <li key={item.productId} className="py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm font-bold">{item.name}</span>
+              {reviewed.has(item.productId) ? (
+                <span className="text-xs font-bold text-muted">Sudah diulas</span>
+              ) : (
+                activeId !== item.productId && (
+                  <button
+                    type="button"
+                    disabled={checking}
+                    onClick={() => open(item.productId)}
+                    className="min-h-9 border-2 border-ink px-4 text-xs font-bold disabled:opacity-50"
+                  >
+                    Beri ulasan
+                  </button>
+                )
+              )}
+            </div>
+            {activeId === item.productId && (
+              <form
+                onSubmit={(event) => void submit(event, item.productId)}
+                className="mt-4 max-w-2xl space-y-4 border-2 border-ink bg-canvas p-5"
+              >
+                <div>
+                  <p className="text-xs font-semibold text-muted">Rating</p>
+                  <div className="mt-2 flex gap-1">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setRating(value)}
+                        aria-label={`${value} bintang`}
+                        aria-pressed={rating === value}
+                        className="p-1"
+                      >
+                        <Star
+                          size={26}
+                          className={rating >= value ? "fill-pink text-pink" : "text-ink"}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="block">
+                  <span className="text-xs font-semibold text-muted">Komentar</span>
+                  <textarea
+                    value={comment}
+                    onChange={(event) => setComment(event.target.value)}
+                    maxLength={1000}
+                    rows={4}
+                    placeholder="Ceritakan kondisi barang setelah diterima."
+                    className="mt-2 w-full border border-ink bg-white p-3 text-sm outline-none"
+                  />
+                </label>
+                <div className="flex gap-3">
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Mengirim..." : "Kirim ulasan"}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveId(null)}
+                    className="min-h-11 border-2 border-ink px-4 text-sm font-bold"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </form>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

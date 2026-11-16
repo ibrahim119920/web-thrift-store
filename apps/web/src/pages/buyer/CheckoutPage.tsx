@@ -12,7 +12,7 @@ import { useToast } from "../../components/ui/Toast";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { STORE_LOCATION } from "../../lib/constants";
-import { formatRupiah } from "../../lib/format";
+import { formatRupiah, formatSize } from "../../lib/format";
 import { addressesService, ordersService } from "../../services";
 import { ApiError } from "../../services/api";
 import { getProduct } from "../../services/products";
@@ -259,7 +259,7 @@ export function CheckoutPage() {
                   <div className="min-w-0">
                     <p className="truncate font-extrabold">{product.name}</p>
                     <p className="mt-1 text-xs text-muted">
-                      LD {product.size.chest} cm · PB {product.size.length} cm
+                      {formatSize(product.size.chest, product.size.length, product.category)}
                     </p>
                     <p className="mt-1 text-xs text-muted">
                       Grade {product.condition.grade}
