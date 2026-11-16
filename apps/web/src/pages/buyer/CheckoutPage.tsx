@@ -358,8 +358,17 @@ export function CheckoutPage() {
         </aside>
       </div>
 
-      <Modal open={addressOpen} title="Tambah Alamat Baru" onClose={() => setAddressOpen(false)}>
-        <form onSubmit={saveAddress} className="grid gap-4 tablet:grid-cols-2">
+      <Modal
+        open={addressOpen}
+        title="Tambah Alamat Baru"
+        onClose={() => setAddressOpen(false)}
+        footer={
+          <Button type="submit" form="address-form" className="w-full rounded-[10px]">
+            Simpan Alamat
+          </Button>
+        }
+      >
+        <form id="address-form" onSubmit={saveAddress} className="grid gap-4 tablet:grid-cols-2">
           <Input
             label="Label alamat"
             value={addressForm.label}
@@ -410,9 +419,6 @@ export function CheckoutPage() {
               error={addressErrors.address}
             />
           </div>
-          <Button type="submit" className="rounded-[10px] tablet:col-span-2">
-            Simpan Alamat
-          </Button>
         </form>
       </Modal>
 
