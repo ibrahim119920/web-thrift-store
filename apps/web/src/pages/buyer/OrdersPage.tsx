@@ -441,7 +441,9 @@ function OrderReviews({ order }: { order: Order }) {
                       >
                         <Star
                           size={26}
-                          className={rating >= value ? "fill-pink text-pink" : "text-ink"}
+                          fill={rating >= value ? "#FFB01D" : "transparent"}
+                          color={rating >= value ? "#FFB01D" : "currentColor"}
+                          className={rating >= value ? undefined : "text-ink"}
                         />
                       </button>
                     ))}

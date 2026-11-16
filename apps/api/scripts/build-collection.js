@@ -145,7 +145,7 @@ const items = [
     name: '2. Produk (Admin & Katalog)',
     item: [
       req(UPLOAD_REQ, 'POST', '/uploads/product-image', {
-        access: 'Private (Bearer Token Admin)', fn: 'Admin meminta presigned URL S3 untuk meng-upload 1 foto produk (diulang 4x untuk 4 sudut).', auth: 'adminToken',
+        access: 'Private (Bearer Token Admin)', fn: 'Admin meminta presigned URL S3 untuk meng-upload 1 foto produk (diulang 4x untuk contoh 4 foto).', auth: 'adminToken',
         body: { contentType: 'image/png', size: TEST_IMAGE.length },
         pre: ["// Mulai kumpulan baru bila run sebelumnya sudah lengkap (penting saat dijalankan ulang di Postman).", "if (JSON.parse(pm.collectionVariables.get('imageKeys') || '[]').length >= 4) pm.collectionVariables.set('imageKeys', '[]');"],
         tests: [status(201), T('Berisi presigned URL dan object key', `  ${json}\n  pm.expect(j.data.uploadUrl).to.match(/^https:\\/\\//);\n  pm.expect(j.data.key).to.match(/^products\\/[0-9a-f-]{36}\\.png$/);\n  pm.expect(j.data.headers['Content-Type']).to.eql('image/png');`), save('uploadUrl', 'pm.response.json().data.uploadUrl'), save('uploadKey', 'pm.response.json().data.key')],
@@ -178,7 +178,7 @@ const items = [
         tests: [status(403)],
       }),
       req('POST /api/products (Admin, produk A)', 'POST', '/products', {
-        access: 'Private (Bearer Token Admin)', fn: 'Admin menambah barang unik (1 barang = 1 dokumen) dengan 4 foto, ukuran cm, dan dokumentasi cacat.', auth: 'adminToken',
+        access: 'Private (Bearer Token Admin)', fn: 'Admin menambah barang unik (1 barang = 1 dokumen) dengan foto (1-10), ukuran cm, dan dokumentasi cacat.', auth: 'adminToken',
         body: productBody('Kemeja Uji Coba A', 'kemeja', 55, 72, 100000),
         tests: [status(201), T('Status awal available, ada minus tags & catatan penjual', `  ${json}\n  pm.expect(j.data.status).to.eql('available');\n  pm.expect(j.data.images).to.have.lengthOf(4);\n  pm.expect(j.data.condition.minusTags).to.eql(['noda kecil']);`), T('Foto dikirim sebagai presigned URL, key tetap tersedia', `  ${json}\n  pm.expect(j.data.imageKeys).to.eql(JSON.parse(pm.collectionVariables.get('imageKeys')));\n  j.data.images.forEach(u => pm.expect(u).to.match(/^https:\\/\\/.+X-Amz-Signature=/));`), save('productA', 'pm.response.json().data._id'), save('imageViewUrl', 'pm.response.json().data.images[0]')],
       }),
@@ -196,9 +196,9 @@ const items = [
         body: productBody('Kaos Uji Coba C', 'kaos', 50, 68, 60000),
         tests: [status(201), save('productC', 'pm.response.json().data._id')],
       }),
-      req('POST /api/products (hanya 3 foto)', 'POST', '/products', {
-        access: 'Private (Bearer Token Admin)', fn: 'Validasi galeri 4 sudut: menolak produk dengan foto selain 4.', auth: 'adminToken',
-        body: { ...productBody('Produk Tiga Foto', 'kaos', 50, 68, 1000), images: [1, 2, 3].map(fakeKey) },
+      req('POST /api/products (tanpa foto)', 'POST', '/products', {
+        access: 'Private (Bearer Token Admin)', fn: 'Validasi galeri: menolak produk tanpa foto (minimal 1 foto).', auth: 'adminToken',
+        body: { ...productBody('Produk Tanpa Foto', 'kaos', 50, 68, 1000), images: [] },
         tests: [status(400)],
       }),
       req('POST /api/products (foto belum di-upload)', 'POST', '/products', {

@@ -8,6 +8,8 @@ export const CATEGORIES = [
   "blouse",
   "sweater",
 ];
+// Samakan dengan MAX_PRODUCT_IMAGES di apps/api/src/models/index.js.
+export const MAX_PRODUCT_IMAGES = 10;
 export const TOKEN_KEY = "wanttosell_token";
 export const USER_KEY = "wanttosell_user";
 export const CART_KEY = "wanttosell_cart";

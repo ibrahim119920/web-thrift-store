@@ -492,7 +492,7 @@
                 "product-image"
               ]
             },
-            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin meminta presigned URL S3 untuk meng-upload 1 foto produk (diulang 4x untuk 4 sudut)."
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin meminta presigned URL S3 untuk meng-upload 1 foto produk (diulang 4x untuk contoh 4 foto)."
           }
         },
         {
@@ -735,7 +735,7 @@
                 "products"
               ]
             },
-            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin menambah barang unik (1 barang = 1 dokumen) dengan 4 foto, ukuran cm, dan dokumentasi cacat."
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Admin menambah barang unik (1 barang = 1 dokumen) dengan foto (1-10), ukuran cm, dan dokumentasi cacat."
           }
         },
         {
@@ -860,7 +860,7 @@
           }
         },
         {
-          "name": "POST /api/products (hanya 3 foto)",
+          "name": "POST /api/products (tanpa foto)",
           "event": [
             {
               "listen": "test",
@@ -888,7 +888,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Produk Tiga Foto\",\n  \"description\": \"Produk Tiga Foto preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [\n    \"products/00000000-0000-4000-8000-000000000001.jpg\",\n    \"products/00000000-0000-4000-8000-000000000002.jpg\",\n    \"products/00000000-0000-4000-8000-000000000003.jpg\"\n  ],\n  \"weight\": 600\n}",
+              "raw": "{\n  \"name\": \"Produk Tanpa Foto\",\n  \"description\": \"Produk Tanpa Foto preloved\",\n  \"category\": \"kaos\",\n  \"brand\": \"TestBrand\",\n  \"size\": {\n    \"label\": \"L\",\n    \"chest\": 50,\n    \"length\": 68\n  },\n  \"condition\": {\n    \"grade\": \"B\",\n    \"description\": \"Ada noda kecil di lengan\",\n    \"minusTags\": [\n      \"noda kecil\"\n    ],\n    \"sellerNote\": \"Bisa dicek via foto detail\"\n  },\n  \"price\": 1000,\n  \"images\": [],\n  \"weight\": 600\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -904,7 +904,7 @@
                 "products"
               ]
             },
-            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Validasi galeri 4 sudut: menolak produk dengan foto selain 4."
+            "description": "Hak Akses: Private (Bearer Token Admin) | Fungsi: Validasi galeri: menolak produk tanpa foto (minimal 1 foto)."
           }
         },
         {

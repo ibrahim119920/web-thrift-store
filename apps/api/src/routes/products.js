@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { z } = require('zod');
-const { Product, Review, PRODUCT_STATUS } = require('../models');
+const { Product, Review, PRODUCT_STATUS, MAX_PRODUCT_IMAGES } = require('../models');
 const { AppError, asyncHandler, ok, escapeRegex, parsePaging, paginationMeta } = require('../utils');
 const { authenticate, requireRole, validate } = require('../middlewares');
 const reviewRoutes = require('./reviews');
@@ -21,7 +21,8 @@ const productSchema = z.object({
   price: z.number().nonnegative(),
   images: z
     .array(z.string().regex(KEY_PATTERN, 'Foto harus berupa object key hasil upload (POST /api/uploads/product-image)'))
-    .length(4, 'Wajib 4 foto (depan, belakang, samping, detail)'),
+    .min(1, 'Wajib minimal 1 foto')
+    .max(MAX_PRODUCT_IMAGES, `Maksimal ${MAX_PRODUCT_IMAGES} foto`),
   weight: z.number().int().positive().optional(),
 });
 const updateSchema = productSchema.partial();
