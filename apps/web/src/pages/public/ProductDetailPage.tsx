@@ -389,34 +389,61 @@ function ProductInformation({ product }: { product: Product }) {
     ["Brand", product.brand],
   ];
   return (
-    <dl>
-      {rows.map(([label, value]) => (
-        <div
-          key={label}
-          className="flex justify-between gap-6 border-b border-[#e8e9e5] py-3 text-sm"
-        >
-          <dt className="text-muted">{label}</dt>
-          <dd className="font-semibold capitalize">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div>
+      {product.description?.trim() && (
+        <p className="mb-5 whitespace-pre-line text-sm leading-6">{product.description}</p>
+      )}
+      <dl>
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="flex justify-between gap-6 border-b border-[#e8e9e5] py-3 text-sm"
+          >
+            <dt className="text-muted">{label}</dt>
+            <dd className="font-semibold capitalize">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
 function DamageInformation({ product }: { product: Product }) {
-  const damagePoints = product.condition.minusTags.length
-    ? product.condition.minusTags
-    : ["Tidak ada kerusakan yang tercatat"];
+  const { description, minusTags, sellerNote } = product.condition;
+  const hasDescription = !!description?.trim();
+  const hasNote = !!sellerNote?.trim();
+  const hasMinus = minusTags.length > 0;
 
   return (
-    <ul className="space-y-3 text-sm text-muted">
-      {damagePoints.map((point) => (
-        <li key={point} className="flex gap-3">
-          <span className="mt-2 size-1.5 shrink-0 rounded-full bg-pink" />
-          <span className="leading-6">{point}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-6 text-sm">
+      {hasDescription && (
+        <section>
+          <h3 className="text-xs font-bold text-muted">DETAIL KONDISI</h3>
+          <p className="mt-2 whitespace-pre-line leading-6">{description}</p>
+        </section>
+      )}
+      <section>
+        <h3 className="text-xs font-bold text-muted">MINUS PRODUK</h3>
+        {hasMinus ? (
+          <ul className="mt-2 space-y-3 text-muted">
+            {minusTags.map((point) => (
+              <li key={point} className="flex gap-3">
+                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-pink" />
+                <span className="leading-6">{point}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-muted">Tidak ada kerusakan yang tercatat</p>
+        )}
+      </section>
+      {hasNote && (
+        <section>
+          <h3 className="text-xs font-bold text-muted">CATATAN PENJUAL</h3>
+          <p className="mt-2 whitespace-pre-line leading-6">{sellerNote}</p>
+        </section>
+      )}
+    </div>
   );
 }
 
