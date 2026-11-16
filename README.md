@@ -150,6 +150,50 @@ Environment backend yang wajib diisi untuk produksi:
 
 Di Midtrans Dashboard → Settings → Payment → **Notification URL**, isi URL webhook publik (HTTPS). Untuk sandbox gunakan key/URL sandbox, untuk produksi aktifkan akun produksi terlebih dahulu.
 
+### Email otomatis (Zoho ZeptoMail)
+
+Backend mengirim email transaksional ke pembeli setiap kali status pesanannya berubah. Email dikirim lewat REST API **Zoho ZeptoMail** memakai `fetch` bawaan Node (tanpa dependency tambahan).
+
+| File | Peran |
+| --- | --- |
+| `apps/api/src/services/emailService.js` | `sendEmail()`: memanggil API ZeptoMail (`POST https://<ZEPTOMAIL_API_HOST>/v1.1/email`), timeout 15 detik |
+| `apps/api/src/services/notificationService.js` | `notifyOrder(orderId, event)`: memilih template, merender HTML + teks, lalu mengirim ke pembeli |
+| `apps/api/scripts/send-email.js` | Kirim email manual dari terminal (`npm run email:send`) |
+
+#### Kapan email dikirim
+
+| Event | Subjek | Dipicu oleh |
+| --- | --- | --- |
+| `created` | Pesanan … dibuat - selesaikan pembayaran | Checkout berhasil (`orderService.createOrder`); berisi batas waktu bayar |
+| `paid` | Pembayaran pesanan … berhasil | Webhook/sinkronisasi Midtrans mengubah pembayaran menjadi `success` |
+| `processing` | Pesanan … sedang dikemas | Admin `PATCH /api/admin/orders/:id/status` → `processing` |
+| `shipped` | Pesanan … sudah dikirim | Admin mengubah status → `shipped` (wajib `trackingNumber`); berisi kurir dan no. resi |
+| `completed` | Pesanan … selesai | Admin mengubah status → `completed` |
+| `cancelled` | Pesanan … dibatalkan | Pembatalan manual, pembayaran `expired` dari Midtrans, atau job `expireOverdueOrders` (berjalan tiap 1 menit di `server.js`) saat batas bayar lewat |
+
+Setiap email berisi sapaan, pesan sesuai event, nomor pesanan, daftar barang, ongkir, dan total. Penerimanya adalah email akun pemilik order (`Order.userId`).
+
+#### Cara kerja
+
+- **Fire-and-forget**: `notifyOrder` dipanggil tanpa `await` *setelah* transaksi database selesai dan dijalankan lewat `setImmediate`, jadi respons API tidak menunggu email.
+- **Tidak pernah menggagalkan alur utama**: error pengiriman hanya dicatat di log (`Email "<event>" untuk order <id> gagal: …`); checkout, pembayaran, dan perubahan status tetap berhasil.
+- **Retry**: error jaringan (mis. `fetch failed`, timeout) dicoba ulang 2 kali dengan jeda 2 dan 5 detik. Error dari ZeptoMail (4xx/5xx) atau konfigurasi yang salah tidak diulang.
+- **Aman dari HTML injection**: nama pembeli, nama barang, kurir, dan no. resi di-escape sebelum dimasukkan ke template.
+- Data order diambil ulang dari database saat email dikirim, sehingga isinya selalu sesuai status terbaru.
+
+#### Konfigurasi
+
+| Key | Contoh | Keterangan |
+| --- | --- | --- |
+| `ZEPTOMAIL_API_HOST` | `api.zeptomail.com` | Sesuai data center akun (`.com`, `.in`, `.eu`, `.com.au`, …) |
+| `ZEPTOMAIL_TOKEN` | `Zoho-enczapikey xxxx` | **Rahasia**. ZeptoMail → Mail Agents → SMTP/API → Send Mail Token. Awalan `Zoho-enczapikey` boleh ada atau tidak |
+| `EMAIL_FROM_ADDRESS` | `noreply@domainanda.com` | Harus memakai domain yang sudah diverifikasi di ZeptoMail |
+| `EMAIL_FROM_NAME` | `WantToSell` | Nama pengirim |
+| `EMAIL_NOTIFICATIONS` | `true` / `false` | `false` mematikan semua email otomatis |
+| `EMAIL_ALLOWLIST` | `saya@gmail.com,teman@gmail.com` | Opsional untuk testing: email hanya dikirim ke alamat di daftar ini. **Kosongkan di production** |
+
+Email otomatis **nonaktif dengan sendirinya** bila `EMAIL_NOTIFICATIONS=false`, `ZEPTOMAIL_TOKEN` kosong atau masih berisi placeholder (`ganti-dengan…`), atau `EMAIL_FROM_ADDRESS` kosong. Karena itu development lokal dan pengujian Newman tidak mengirim email selama token belum diisi.
+
 
 ## Google Drive Link  
 https://drive.google.com/drive/...
