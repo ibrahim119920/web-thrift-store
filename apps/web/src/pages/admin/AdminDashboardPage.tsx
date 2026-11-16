@@ -19,7 +19,7 @@ import { ErrorState } from "../../components/ui/ErrorState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useAuth } from "../../context/AuthContext";
 import { CATEGORIES, USE_MOCK } from "../../lib/constants";
-import { formatRupiah } from "../../lib/format";
+import { formatRupiah, formatSize, getMeasurementLabels } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel } from "../../lib/order";
 import { ordersService } from "../../services";
 import {
@@ -309,7 +309,7 @@ export function AdminDashboardPage() {
                           </td>
                           <td className="px-5 py-3 capitalize">{product.category}</td>
                           <td className="px-5 py-3">
-                            LD {product.size.chest} cm · PB {product.size.length} cm
+                            {formatSize(product.size.chest, product.size.length, product.category)}
                           </td>
                           <td className="px-5 py-3 font-semibold">{formatRupiah(product.price)}</td>
                           <td className="px-5 py-3">
@@ -519,6 +519,8 @@ function ProductEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const measure = getMeasurementLabels(draft.category);
+
   const update = <Key extends keyof ProductDraft>(key: Key, value: ProductDraft[Key]) =>
     setDraft((current) => ({ ...current, [key]: value }));
 
@@ -663,13 +665,13 @@ function ProductEditor({
               onChange={(value) => update("sizeLabel", value)}
             />
             <EditorField
-              label="Lebar dada / LD (cm)"
+              label={`${measure.first.name} / ${measure.first.short} (cm)`}
               value={draft.chest}
               type="number"
               onChange={(value) => update("chest", value)}
             />
             <EditorField
-              label="Panjang badan / PB (cm)"
+              label={`${measure.second.name} / ${measure.second.short} (cm)`}
               value={draft.length}
               type="number"
               onChange={(value) => update("length", value)}

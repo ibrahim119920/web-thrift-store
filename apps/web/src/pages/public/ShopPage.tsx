@@ -30,18 +30,18 @@ const filterLabels: Record<keyof CatalogFilters, string> = {
   brand: "Brand",
   minPrice: "Harga min",
   maxPrice: "Harga max",
-  minChest: "LD min",
-  maxChest: "LD max",
-  minLength: "PB min",
-  maxLength: "PB max",
+  minChest: "LD/LP min",
+  maxChest: "LD/LP max",
+  minLength: "PB/PC min",
+  maxLength: "PB/PC max",
 };
 
 const sortOptions = [
   { label: "Terbaru", value: "newest" },
   { label: "Harga terendah", value: "price_asc" },
   { label: "Harga tertinggi", value: "price_desc" },
-  { label: "Lebar dada terkecil", value: "chest_asc" },
-  { label: "Lebar dada terbesar", value: "chest_desc" },
+  { label: "Ukuran 1 terkecil (LD/LP)", value: "chest_asc" },
+  { label: "Ukuran 1 terbesar (LD/LP)", value: "chest_desc" },
 ];
 
 type ShopParams = Partial<CatalogFilters> & {
@@ -216,6 +216,7 @@ export function ShopPage() {
               onChange={setDraftFilters}
               onApply={applyFilters}
               onReset={resetFilters}
+              category={category}
             />
           </div>
         </aside>
@@ -281,6 +282,7 @@ export function ShopPage() {
           onChange={setDraftFilters}
           onApply={applyFilters}
           onReset={resetFilters}
+          category={category}
         />
       </Drawer>
     </section>
