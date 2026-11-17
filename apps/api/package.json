@@ -9,6 +9,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node scripts/seed.js",
+    "seed:final": "node scripts/final-seed.js",
     "test": "npm run test:api && npm run test:integrity",
     "test:api": "node scripts/run-tests.js",
     "test:integrity": "node scripts/integrity-test.js",
