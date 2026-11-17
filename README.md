@@ -2,8 +2,6 @@
 
 WantToSell adalah platform web untuk penjualan pakaian thrift dengan sistem stok unik, transaksi pembelian, dan pengelolaan produk.
 
-🌐 **Website:** https://www.wanttosell.my.id/
-
 ## Kelompok 20
 
 1. Aqidatul Izzah (24/533730/TK/59137)
@@ -196,6 +194,8 @@ Setiap email berisi sapaan, pesan sesuai event, nomor pesanan, daftar barang, on
 
 Email otomatis **nonaktif dengan sendirinya** bila `EMAIL_NOTIFICATIONS=false`, `ZEPTOMAIL_TOKEN` kosong atau masih berisi placeholder (`ganti-dengan…`), atau `EMAIL_FROM_ADDRESS` kosong. Karena itu development lokal dan pengujian Newman tidak mengirim email selama token belum diisi.
 
+## Tautan
 
-## Google Drive Link  
-https://drive.google.com/drive/folders/1kQyBdNmgoBmuqQ7o6k33Q1QPERaDhwEG?usp=sharing
+🌐 **Website:** https://www.wanttosell.my.id/
+
+📁 **Dokumentasi (video demo & PPT):** [Google Drive](https://drive.google.com/drive/folders/1kQyBdNmgoBmuqQ7o6k33Q1QPERaDhwEG?usp=drive_link)
