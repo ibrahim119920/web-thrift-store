@@ -55,6 +55,26 @@ type ProductDraft = {
 };
 
 // key: object key S3 yang dikirim ke API; preview: URL yang bisa ditampilkan browser.
+// Pesan validasi per field (sesuai schema di apps/api/src/routes/products.js).
+const FIELD_ERRORS: Record<string, string> = {
+  name: "Nama barang minimal 2 karakter.",
+  category: "Jenis barang wajib dipilih.",
+  brand: "Brand tidak valid.",
+  price: "Harga harus berupa angka 0 atau lebih.",
+  weight: "Berat harus berupa bilangan bulat lebih dari 0.",
+  "size.label": "Label ukuran wajib diisi.",
+  "size.chest": "Lebar dada (LD) harus berupa angka lebih dari 0.",
+  "size.length": "Panjang badan (PB) harus berupa angka lebih dari 0.",
+  "condition.grade": "Grade kondisi harus A, B, atau C.",
+};
+
+function describeApiError(error: ApiError) {
+  const messages = Object.entries(error.errors).map(([field, message]) =>
+    field.startsWith("images") ? message : (FIELD_ERRORS[field] ?? `${field}: ${message}`),
+  );
+  return messages.length ? [...new Set(messages)].join(" ") : error.message;
+}
+
 type PhotoSlot = { id: string; key: string; preview: string; uploading: boolean; error: string };
 
 let photoIdCounter = 0;
@@ -715,7 +735,7 @@ function ProductEditor({
     } catch (saveError) {
       setError(
         saveError instanceof ApiError
-          ? saveError.message
+          ? describeApiError(saveError)
           : "Produk belum dapat disimpan. Coba lagi.",
       );
     } finally {
