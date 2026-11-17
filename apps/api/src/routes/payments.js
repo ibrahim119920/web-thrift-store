@@ -120,7 +120,7 @@ webhook.get('/config', (_req, res) => {
   ok(res, {
     mode: production ? 'snap' : 'qris-core',
     isProduction: production,
-    expiryMinutes: parseInt(process.env.ORDER_EXPIRY_MINUTES, 10) || 60,
+    expiryMinutes: parseInt(process.env.ORDER_EXPIRY_MINUTES, 10) || 5,
   });
 });
 

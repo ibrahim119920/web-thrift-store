@@ -4,7 +4,7 @@ const { AppError, withTransaction } = require('../utils');
 const { calculateShipping } = require('../utils/shipping');
 const { notifyOrder } = require('./notificationService');
 
-const expiryMinutes = () => parseInt(process.env.ORDER_EXPIRY_MINUTES, 10) || 60;
+const expiryMinutes = () => parseInt(process.env.ORDER_EXPIRY_MINUTES, 10) || 5;
 
 function newOrderNumber() {
   const d = new Date().toISOString().slice(0, 10).replace(/-/g, '');

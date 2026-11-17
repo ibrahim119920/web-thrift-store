@@ -5,7 +5,7 @@ const { AppError } = require('../utils');
 const midtrans = require('./midtransService');
 const { applyPaymentResult, cancelOrder } = require('./orderService');
 
-const expiryMinutes = () => parseInt(process.env.ORDER_EXPIRY_MINUTES, 10) || 60;
+const expiryMinutes = () => parseInt(process.env.ORDER_EXPIRY_MINUTES, 10) || 5;
 const SYNC_INTERVAL_MS = 15 * 1000; // jangan hit API Midtrans lebih sering dari ini per transaksi
 
 const addressPayload = (address) => ({
@@ -65,14 +65,21 @@ function buildSnapPayload({ order, user, address }) {
   return payload;
 }
 
+// Format waktu Midtrans: "yyyy-MM-dd HH:mm:ss +0700" (WIB).
+const midtransTimestamp = (date) => `${new Date(date.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ')} +0700`;
+
 // Charge QRIS Core API (sandbox) agar mendapat URL gambar QR untuk simulator.
+// custom_expiry dikirim agar QR aktif sampai batas waktu order (default Midtrans 15 menit).
 function buildCoreQrisPayload({ order, user, address }) {
+  const now = new Date();
+  const minutesLeft = Math.max(1, Math.ceil((order.expiresAt - now) / 60000));
   return {
     payment_type: 'qris',
     transaction_details: { order_id: order.orderNumber, gross_amount: order.total },
     item_details: itemDetailsOf(order),
     customer_details: customerDetailsOf(user, address),
     qris: { acquirer: 'gopay' },
+    custom_expiry: { order_time: midtransTimestamp(now), expiry_duration: minutesLeft, unit: 'minute' },
   };
 }
 
