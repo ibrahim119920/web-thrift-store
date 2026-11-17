@@ -18,7 +18,7 @@ import { Button } from "../../components/ui/Button";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useAuth } from "../../context/AuthContext";
-import { CATEGORIES, MAX_PRODUCT_IMAGES, USE_MOCK } from "../../lib/constants";
+import { CATEGORIES, MAX_PRODUCT_IMAGES, MIN_NEW_PRODUCT_IMAGES, USE_MOCK } from "../../lib/constants";
 import { formatRupiah, formatSize, getMeasurementLabels } from "../../lib/format";
 import { orderStatusClass, orderStatusLabel, orderStatusOptions } from "../../lib/order";
 import { ordersService } from "../../services";
@@ -674,8 +674,8 @@ function ProductEditor({
       setError("Tunggu sampai semua foto selesai di-upload.");
       return;
     }
-    if (photos.length === 0) {
-      setError("Upload minimal 1 foto barang.");
+    if (photos.length < (product ? 1 : MIN_NEW_PRODUCT_IMAGES)) {
+      setError(product ? "Upload minimal 1 foto barang." : `Upload minimal ${MIN_NEW_PRODUCT_IMAGES} foto barang.`);
       return;
     }
     // Produk seed lama menyimpan URL eksternal; API hanya menerima object key S3.
@@ -801,7 +801,7 @@ function ProductEditor({
             />
             <div className="tablet:col-span-2">
               <span className="mb-2 block text-xs font-semibold">
-                Foto barang (min. 1, maks. {MAX_PRODUCT_IMAGES} · JPG, PNG, atau WebP, maks. 5 MB)
+                Foto barang ({product ? "min. 1" : `min. ${MIN_NEW_PRODUCT_IMAGES}`}, maks. {MAX_PRODUCT_IMAGES} · JPG, PNG, atau WebP, maks. 5 MB)
               </span>
               <p className="-mt-1 mb-3 text-[10px] text-muted">Foto pertama dipakai sebagai foto utama.</p>
               <div className="grid grid-cols-2 gap-3 tablet:grid-cols-4">

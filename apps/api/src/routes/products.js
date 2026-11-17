@@ -6,6 +6,8 @@ const { authenticate, requireRole, validate } = require('../middlewares');
 const reviewRoutes = require('./reviews');
 const { KEY_PATTERN, assertProductImagesUploaded, withImageUrls } = require('../services/storageService');
 
+const MIN_NEW_PRODUCT_IMAGES = 4;
+
 const productSchema = z.object({
   name: z.string().trim().min(2),
   description: z.string().default(''),
@@ -24,6 +26,10 @@ const productSchema = z.object({
     .min(1, 'Wajib minimal 1 foto')
     .max(MAX_PRODUCT_IMAGES, `Maksimal ${MAX_PRODUCT_IMAGES} foto`),
   weight: z.number().int().positive().optional(),
+});
+// Produk baru wajib minimal 4 foto; edit tetap boleh 1+ agar produk lama (1-2 foto) tidak terblokir.
+const createSchema = productSchema.extend({
+  images: productSchema.shape.images.min(MIN_NEW_PRODUCT_IMAGES, `Wajib minimal ${MIN_NEW_PRODUCT_IMAGES} foto`),
 });
 const updateSchema = productSchema.partial();
 
@@ -97,7 +103,7 @@ router.post(
   '/',
   authenticate,
   requireRole('admin'),
-  validate(productSchema),
+  validate(createSchema),
   asyncHandler(async (req, res) => {
     await assertProductImagesUploaded(req.body.images);
     const product = await Product.create({ ...req.body, status: 'available' });
