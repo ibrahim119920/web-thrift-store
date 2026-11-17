@@ -198,4 +198,4 @@ Email otomatis **nonaktif dengan sendirinya** bila `EMAIL_NOTIFICATIONS=false`, 
 
 
 ## Google Drive Link  
-https://drive.google.com/drive/...
+https://drive.google.com/drive/folders/1kQyBdNmgoBmuqQ7o6k33Q1QPERaDhwEG?usp=sharing
