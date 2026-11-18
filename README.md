@@ -199,3 +199,25 @@ Email otomatis **nonaktif dengan sendirinya** bila `EMAIL_NOTIFICATIONS=false`, 
 🌐 **Website:** https://www.wanttosell.my.id/
 
 📁 **Dokumentasi (video demo & PPT):** [Google Drive](https://drive.google.com/drive/folders/1kQyBdNmgoBmuqQ7o6k33Q1QPERaDhwEG?usp=drive_link)
+
+## Mencoba Aplikasi
+
+Buka https://www.wanttosell.my.id/ lalu login dengan salah satu akun demo berikut.
+
+| Peran | Email | Password |
+| --- | --- | --- |
+| Admin | `admin@wanttosell.id` | `admin123` |
+| Pembeli 1 | `user1@wanttosell.id` | `user123` |
+| Pembeli 2 | `user2@wanttosell.id` | `user123` |
+| Pembeli 3 | `user3@wanttosell.id` | `user123` |
+
+Akun admin dipakai untuk mengelola produk dan memproses pesanan (dikemas, dikirim, selesai). Akun pembeli dipakai untuk berbelanja, membayar, dan memberi ulasan.
+
+### Mencoba pengiriman email
+
+Alamat `@wanttosell.id` pada akun demo hanyalah contoh dan tidak punya kotak masuk, jadi email notifikasi tidak akan sampai ke sana. Untuk mencoba email otomatis:
+
+1. Daftar akun baru lewat halaman **Register** dengan **email milikmu sendiri**.
+2. Login, tambahkan produk ke keranjang, lalu checkout. Email "pesanan dibuat" akan masuk ke emailmu.
+
+Cek juga folder spam bila email belum terlihat.
